@@ -25,7 +25,11 @@ SECRET_KEY = "django-insecure-m%vf8f7@5vwnf0j31_o%r$rlb(_m40_23q-9!$y%%*qblyw(ld
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    'congenial-xylophone-6j6p-4tvr4wgf69p-8000.app.github.dev',
+]
 
 
 # Application definition
@@ -43,13 +47,14 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "waf_project.waf_engine.middleware.WAFMiddleware",  # Placed here for early inspection
+    "waf_project.waf_engine.tenant_middleware.TenantMiddleware", 
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "waf_project.waf_engine.middleware.WAFMiddleware"
 ]
 
 ROOT_URLCONF = "waf_project.urls"
@@ -123,3 +128,11 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+LOGIN_URL = '/admin/login/'
+
+AUTH_USER_MODEL = "waf_core.User"
+
+
+LOGIN_REDIRECT_URL = 'dashboard'   # Redirect after successful login
+LOGOUT_REDIRECT_URL = 'login'      # Redirect after logout

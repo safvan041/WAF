@@ -1,9 +1,85 @@
-# waf_core/admin.py
 from django.contrib import admin
-from .models import SecurityEvent
+from django.contrib.auth.admin import UserAdmin
+from .models import (
+    Tenant, 
+    User, 
+    FirewallRule, 
+    TenantFirewallConfig, 
+    SecurityEvent, 
+    DailyReport,
+    RateLimitConfig,
+    IPWhitelist,
+    IPBlacklist,
+    GeographicRule,
+    WAFConfiguration
+)
+
+# Register all models in the admin panel
+admin.site.register(Tenant)
+
+@admin.register(User)
+class CustomUserAdmin(UserAdmin):
+    list_display = ('username', 'email', 'role', 'tenant', 'is_staff', 'is_superuser')
+    list_filter = ('role', 'tenant', 'is_staff', 'is_superuser')
+
+    fieldsets = UserAdmin.fieldsets + (
+        ('Tenant & Role Info', {'fields': ('tenant', 'role')}),
+    )
+    add_fieldsets = UserAdmin.add_fieldsets + (
+        ('Tenant & Role Info', {'fields': ('tenant', 'role')}),
+    )
+
+    search_fields = ('username', 'email')
+    ordering = ('username',)
+
+@admin.register(FirewallRule)
+class FirewallRuleAdmin(admin.ModelAdmin):
+    list_display = ('name', 'rule_type', 'action', 'severity', 'is_active')
+    list_filter = ('rule_type', 'action', 'severity', 'is_active')
+    search_fields = ('name', 'pattern')
+
+@admin.register(TenantFirewallConfig)
+class TenantFirewallConfigAdmin(admin.ModelAdmin):
+    list_display = ('tenant', 'rule', 'is_enabled', 'get_effective_action')
+    list_filter = ('tenant', 'rule__rule_type', 'is_enabled')
+    search_fields = ('tenant__name', 'rule__name')
 
 @admin.register(SecurityEvent)
 class SecurityEventAdmin(admin.ModelAdmin):
-    list_display = ('source_ip', 'event_type', 'rule_name', 'action_taken', 'timestamp')
-    list_filter = ('event_type', 'action_taken')
-    search_fields = ('source_ip', 'details')
+    list_display = ('tenant', 'rule', 'event_type', 'action_taken', 'source_ip', 'timestamp')
+    list_filter = ('tenant', 'event_type', 'action_taken')
+    search_fields = ('source_ip', 'request_url')
+
+@admin.register(DailyReport)
+class DailyReportAdmin(admin.ModelAdmin):
+    list_display = ('tenant', 'report_date', 'total_requests', 'blocked_requests', 'block_rate', 'is_sent')
+    list_filter = ('tenant', 'report_date', 'is_sent')
+    search_fields = ('tenant__name', 'report_date')
+
+@admin.register(RateLimitConfig)
+class RateLimitConfigAdmin(admin.ModelAdmin):
+    list_display = ('tenant', 'requests_per_minute', 'requests_per_hour', 'per_ip_requests_per_minute')
+    list_filter = ('tenant',)
+
+@admin.register(IPWhitelist)
+class IPWhitelistAdmin(admin.ModelAdmin):
+    list_display = ('tenant', 'ip_address', 'is_active')
+    list_filter = ('tenant', 'is_active')
+    search_fields = ('ip_address', 'cidr_range')
+
+@admin.register(IPBlacklist)
+class IPBlacklistAdmin(admin.ModelAdmin):
+    list_display = ('tenant', 'ip_address', 'is_active', 'expires_at')
+    list_filter = ('tenant', 'is_active', 'expires_at')
+    search_fields = ('ip_address', 'reason')
+
+@admin.register(GeographicRule)
+class GeographicRuleAdmin(admin.ModelAdmin):
+    list_display = ('tenant', 'country_code', 'action', 'is_active')
+    list_filter = ('tenant', 'action', 'is_active')
+    search_fields = ('country_code', 'country_name')
+
+@admin.register(WAFConfiguration)
+class WAFConfigurationAdmin(admin.ModelAdmin):
+    list_display = ('tenant', 'protection_level', 'is_enabled', 'sql_injection_protection', 'xss_protection')
+    list_filter = ('tenant', 'protection_level', 'is_enabled')

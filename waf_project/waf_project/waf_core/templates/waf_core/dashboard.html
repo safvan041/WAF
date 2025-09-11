@@ -1,0 +1,61 @@
+{% extends "waf_core/base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>🏢 {{ tenant.name }} Security Dashboard</h1>
+    <p>Welcome, {{ request.user.username }} ({{ request.user.role }})</p>
+
+    <div class="stats">
+        <div class="stat-box">
+            <h3>Total Events (Last 24h)</h3>
+            <p>{{ total_events }}</p>
+        </div>
+        <div class="stat-box">
+            <h3>Blocked Events (Last 24h)</h3>
+            <p>{{ blocked_events }}</p>
+        </div>
+    </div>
+
+    <h2>🔥 Top Attacking IPs</h2>
+    <table border="1" cellpadding="8">
+        <tr>
+            <th>IP Address</th>
+            <th>Attempts</th>
+        </tr>
+        {% for ip in top_ips_json %}
+        <tr>
+            <td>{{ ip.source_ip }}</td>
+            <td>{{ ip.count }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="2">No attacks detected in last 24 hours.</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <h2>🕒 Recent Security Events</h2>
+    <table border="1" cellpadding="8">
+        <tr>
+            <th>Rule</th>
+            <th>Event Type</th>
+            <th>Action Taken</th>
+            <th>Source IP</th>
+            <th>Timestamp</th>
+        </tr>
+        {% for event in recent_events %}
+        <tr>
+            <td>{{ event.rule.name }}</td>
+            <td>{{ event.event_type }}</td>
+            <td>{{ event.action_taken }}</td>
+            <td>{{ event.source_ip }}</td>
+            <td>{{ event.timestamp }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="5">No recent events found.</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends "waf_core/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container">
+    <h1>🌐 Global Security Dashboard</h1>
+    <p>Welcome, {{ request.user.username }} (Super Admin)</p>
+
+    <div class="stats">
+        <div class="stat-box">
+            <h3>Total Events (All Tenants)</h3>
+            <p>{{ total_events }}</p>
+        </div>
+        <div class="stat-box">
+            <h3>Blocked Events</h3>
+            <p>{{ blocked_events }}</p>
+        </div>
+    </div>
+
+    <h2>📊 Tenants Overview</h2>
+    <table border="1" cellpadding="8">
+        <tr>
+            <th>Tenant</th>
+            <th>Total Events</th>
+            <th>Blocked Events</th>
+        </tr>
+        {% for stats in tenants_stats %}
+        <tr>
+            <td>{{ stats.tenant.name }}</td>
+            <td>{{ stats.total_events }}</td>
+            <td>{{ stats.blocked_events }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="3">No tenants found.</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <h2>🕒 Recent Security Events</h2>
+    <table border="1" cellpadding="8">
+        <tr>
+            <th>Tenant</th>
+            <th>Rule</th>
+            <th>Event Type</th>
+            <th>Action Taken</th>
+            <th>Source IP</th>
+            <th>Timestamp</th>
+        </tr>
+        {% for event in recent_events %}
+        <tr>
+            <td>{{ event.tenant.name }}</td>
+            <td>{{ event.rule.name }}</td>
+            <td>{{ event.event_type }}</td>
+            <td>{{ event.action_taken }}</td>
+            <td>{{ event.source_ip }}</td>
+            <td>{{ event.timestamp }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="6">No recent events found.</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}
