@@ -63,15 +63,24 @@ class WAFMiddleware(MiddlewareMixin):
         client_ip = self._get_client_ip(request)
         print(f"DEBUG: Client IP: {client_ip}")
         
-        # Check against IP Whitelist first
+        # Check IP against whitelists and blacklists
         if self._is_whitelisted(request.tenant, client_ip):
-            print("DEBUG: IP is whitelisted, allowing request")
+            logger.info(f"Whitelisted IP: {client_ip} for tenant {request.tenant.name}")
             return self.get_response(request)
 
-        # Check against IP Blacklist
         if self._is_blacklisted(request.tenant, client_ip):
-            self._log_event(request, 'IP_BLACKLIST', None, 'block')
-            return HttpResponseForbidden("Your IP has been blacklisted.")
+            logger.info(f"Blacklisted IP: {client_ip} for tenant {request.tenant.name}")
+            self._log_event(request.tenant, None, 'ip_blacklist', 'block', 'critical', client_ip, request)
+            return HttpResponseForbidden("<h1>403 Forbidden</h1><p>Your IP has been blacklisted.</p>")
+
+        # Check geographic blocking
+        if self._is_geoblocked(request.tenant, client_ip):
+            logger.info(f"Geoblocked IP: {client_ip} for tenant {request.tenant.name}")
+            # Placeholder for rule object
+            rule = FirewallRule.objects.filter(rule_type='geo_blocking').first() 
+            self._log_event(request.tenant, rule, 'geo_blocking', 'block', 'medium', client_ip, request)
+            return HttpResponseForbidden("<h1>403 Forbidden</h1><p>Access from your country is blocked.</p>")
+
 
         # Load active rules for the tenant
         tenant_rules = TenantFirewallConfig.objects.filter(
@@ -158,18 +167,19 @@ class WAFMiddleware(MiddlewareMixin):
             return match
         return False
 
-    def _log_event(self, request, event_type, rule, action_taken):
+    def _log_event(self, tenant, rule, event_type, action_taken, severity, client_ip, request):
         try:
             event = SecurityEvent.objects.create(
-                tenant=request.tenant,
+                tenant=tenant,
                 rule=rule,  
                 event_type=event_type,
-                severity=rule.severity if rule else "low",
+                severity=severity,
                 action_taken=action_taken,
-                source_ip=self._get_client_ip(request),
+                source_ip=client_ip,
                 request_method=request.method,
-                request_url=request.build_absolute_uri(),
+                request_url=request.get_full_path(),
+                request_headers=json.dumps(dict(request.headers)),
             )
-            print(f"DEBUG: Logged security event: {event.id}")
+            logger.info(f"Logged security event: {event.id}")
         except Exception as e:
-            print(f"DEBUG: Failed to log security event: {e}")
+            logger.error(f"Failed to log security event: {e}")

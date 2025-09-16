@@ -1,61 +1,186 @@
 {% extends "waf_core/base.html" %}
+{% load static %}
 
 {% block content %}
-<div class="container">
-    <h1>🏢 {{ tenant.name }} Security Dashboard</h1>
-    <p>Welcome, {{ request.user.username }} ({{ request.user.role }})</p>
+<style>
+    /* General Styles */
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; color: #333; }
+    .container { max-width: 1200px; margin: 0 auto; display: grid; gap: 20px; }
+    .dashboard-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2.5rem 2rem;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        border-radius: 8px;
+        margin-bottom: 2rem;
+    }
+    .dashboard-header h1 {
+        font-size: 2.5rem;
+        font-weight: 300;
+        margin-bottom: 0.5rem;
+    }
+    .dashboard-header p {
+        font-size: 1.1rem;
+        opacity: 0.8;
+    }
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .stat-card {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        text-align: center;
+        border-left: 4px solid #667eea;
+    }
+    .stat-card h3 {
+        font-size: 1rem;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+    }
+    .stat-card .value {
+        font-size: 3rem;
+        font-weight: bold;
+        color: #333;
+    }
+    .stat-card.danger {
+        border-left-color: #e74c3c;
+    }
+    /* Tables */
+    .table-responsive {
+        overflow-x: auto;
+    }
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        margin-bottom: 2rem;
+        font-size: 0.9rem;
+    }
+    .data-table th, .data-table td {
+        padding: 1rem;
+        text-align: left;
+        border-bottom: 1px solid #e9ecef;
+    }
+    .data-table th {
+        background: #f8f9fa;
+        font-weight: 600;
+        color: #495057;
+    }
+    .data-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+    .data-table tbody tr:hover {
+        background: #f5f5f5;
+    }
+    /* Charts */
+    .chart-container {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        margin-bottom: 2rem;
+    }
+    .chart-container h2 {
+        margin-top: 0;
+    }
+</style>
 
-    <div class="stats">
-        <div class="stat-box">
-            <h3>Total Events (Last 24h)</h3>
-            <p>{{ total_events }}</p>
+<div class="container mt-4">
+    <div class="dashboard-header">
+        <h1>🛡️ {{ tenant.name }} - WAF Dashboard</h1>
+        <p>Your WAF security overview for {{ tenant.domain }}</p>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h3>Total Events (24h)</h3>
+            <div class="value">{{ total_events }}</div>
         </div>
-        <div class="stat-box">
-            <h3>Blocked Events (Last 24h)</h3>
-            <p>{{ blocked_events }}</p>
+        <div class="stat-card danger">
+            <h3>Blocked Events (24h)</h3>
+            <div class="value">{{ blocked_events }}</div>
         </div>
     </div>
 
-    <h2>🔥 Top Attacking IPs</h2>
-    <table border="1" cellpadding="8">
-        <tr>
-            <th>IP Address</th>
-            <th>Attempts</th>
-        </tr>
-        {% for ip in top_ips_json %}
-        <tr>
-            <td>{{ ip.source_ip }}</td>
-            <td>{{ ip.count }}</td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td colspan="2">No attacks detected in last 24 hours.</td>
-        </tr>
-        {% endfor %}
-    </table>
+    <div class="chart-container">
+        <h2>📊 Top Attacking IPs (24h)</h2>
+        <canvas id="topIPsChart"></canvas>
+    </div>
 
-    <h2>🕒 Recent Security Events</h2>
-    <table border="1" cellpadding="8">
-        <tr>
-            <th>Rule</th>
-            <th>Event Type</th>
-            <th>Action Taken</th>
-            <th>Source IP</th>
-            <th>Timestamp</th>
-        </tr>
-        {% for event in recent_events %}
-        <tr>
-            <td>{{ event.rule.name }}</td>
-            <td>{{ event.event_type }}</td>
-            <td>{{ event.action_taken }}</td>
-            <td>{{ event.source_ip }}</td>
-            <td>{{ event.timestamp }}</td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td colspan="5">No recent events found.</td>
-        </tr>
-        {% endfor %}
-    </table>
+    <div class="table-responsive">
+        <h2>🕒 Recent Security Events</h2>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>IP Address</th>
+                    <th>Event Type</th>
+                    <th>Rule Name</th>
+                    <th>Action Taken</th>
+                    <th>Severity</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for event in recent_events %}
+                <tr>
+                    <td>{{ event.timestamp|date:"Y-m-d H:i:s" }}</td>
+                    <td>{{ event.source_ip }}</td>
+                    <td>{{ event.event_type }}</td>
+                    <td>{{ event.rule_name }}</td>
+                    <td>{{ event.action_taken }}</td>
+                    <td>{{ event.severity }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align: center;">No security events recorded in the last 24 hours.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('topIPsChart').getContext('2d');
+        const topIPsData = JSON.parse('{{ top_ips_json|safe }}');
+        
+        const labels = topIPsData.map(item => item.source_ip);
+        const data = topIPsData.map(item => item.count);
+        
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Number of Attacks',
+                    data: data,
+                    backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                    borderColor: 'rgba(102, 126, 234, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    });
+</script>
 {% endblock %}

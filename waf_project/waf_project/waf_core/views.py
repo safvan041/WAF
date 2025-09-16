@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.utils import timezone
 from datetime import timedelta
 from waf_project.waf_core.models import SecurityEvent, Tenant, WAFConfiguration
@@ -13,41 +13,50 @@ def home_view(request):
 @login_required
 def dashboard_view(request):
     """
-    Displays the WAF security dashboard for an authenticated user.
-    Role-based access:
-    - Superuser / Admin role → global stats across tenants
-    - Tenant Admin / Analyst → only their tenant stats
-    - Others → error page
+    Displays the WAF security dashboard based on user's role.
+    - Superuser: global stats across all tenants.
+    - Tenant-bound user: stats for their specific tenant.
     """
     user = request.user
+    context = {}
 
-    # Case 1: Superuser or role == "admin" → global dashboard
-    if user.is_superuser or getattr(user, "role", None) == "admin":
+    # Check for a user role. If the role field doesn't exist, this will default to None.
+    user_role = getattr(user, "role", None)
+
+    # Superuser or Admin role (for global dashboard)
+    if user.is_superuser or user_role == "admin":
         tenants = Tenant.objects.all()
-        total_events = SecurityEvent.objects.count()
-        blocked_events = SecurityEvent.objects.filter(action_taken='block').count()
-        recent_events = SecurityEvent.objects.order_by('-timestamp')[:10]
+        twenty_four_hours_ago = timezone.now() - timedelta(hours=24)
+        
+        # Optimized query for all events in the last 24 hours
+        all_recent_events = SecurityEvent.objects.filter(timestamp__gte=twenty_four_hours_ago)
+        
+        # Aggregate stats globally
+        total_events = all_recent_events.count()
+        blocked_events = all_recent_events.filter(action_taken='block').count()
+        recent_events_list = all_recent_events.order_by('-timestamp')[:10]
+        
+        # Get top attacking IPs globally
+        top_ips = all_recent_events.values('source_ip').annotate(
+            count=Count('source_ip')
+        ).order_by('-count')[:5]
 
-        # Precompute per-tenant stats
-        tenants_stats = []
-        for tenant in tenants:
-            total = SecurityEvent.objects.filter(tenant=tenant).count()
-            blocked = SecurityEvent.objects.filter(tenant=tenant, action_taken='block').count()
-            tenants_stats.append({
-                'tenant': tenant,
-                'total_events': total,
-                'blocked_events': blocked,
-            })
+        # Use prefetching to optimize per-tenant stats
+        tenants_with_stats = Tenant.objects.annotate(
+            total_events_count=Count('security_events', filter=Q(security_events__timestamp__gte=twenty_four_hours_ago)),
+            blocked_events_count=Count('security_events', filter=Q(security_events__timestamp__gte=twenty_four_hours_ago, security_events__action_taken='block'))
+        ).order_by('-total_events_count')
 
         return render(request, 'waf_core/global_dashboard.html', {
-            'tenants_stats': tenants_stats,
+            'tenants_with_stats': tenants_with_stats,
             'total_events': total_events,
             'blocked_events': blocked_events,
-            'recent_events': recent_events,
+            'recent_events': recent_events_list,
+            'top_ips_json': list(top_ips),
         })
 
-    # Case 2: Tenant-bound roles (tenant_admin, analyst)
-    if getattr(user, "role", None) in ["tenant_admin", "analyst"] and getattr(user, "tenant", None):
+    # Tenant-bound roles (tenant_admin, analyst)
+    if user_role in ["tenant_admin", "analyst"] and getattr(user, "tenant", None):
         tenant = user.tenant
         twenty_four_hours_ago = timezone.now() - timedelta(hours=24)
 
@@ -70,7 +79,7 @@ def dashboard_view(request):
             'top_ips_json': list(top_ips),
         })
 
-    # Case 3: Fallback for users without role/tenant
+    # Fallback for all other cases
     return render(request, 'waf_core/error_dashboard.html', {
         'message': 'You don’t have access to the dashboard. Contact your admin.'
     })
