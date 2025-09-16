@@ -1,4 +1,6 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
+from .forms import TenantRegistrationForm
+from django.contrib.auth import login
 from django.db.models import Count, Q
 from django.utils import timezone
 from datetime import timedelta
@@ -83,3 +85,18 @@ def dashboard_view(request):
     return render(request, 'waf_core/error_dashboard.html', {
         'message': 'You don’t have access to the dashboard. Contact your admin.'
     })
+
+def register(request):
+    # If the user is already authenticated, redirect them to the dashboard
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        form = TenantRegistrationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            return redirect('dashboard')
+    else:
+        form = TenantRegistrationForm()
+    return render(request, 'waf_core/register.html', {'form': form})
