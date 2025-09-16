@@ -70,8 +70,7 @@ class WAFMiddleware(MiddlewareMixin):
 
         # Check against IP Blacklist
         if self._is_blacklisted(request.tenant, client_ip):
-            print("DEBUG: IP is blacklisted, blocking request")
-            self._log_event(request, 'IP_BLACKLIST', 'IP Blacklisted', 'block')
+            self._log_event(request, 'IP_BLACKLIST', None, 'block')
             return HttpResponseForbidden("Your IP has been blacklisted.")
 
         # Load active rules for the tenant
@@ -90,7 +89,7 @@ class WAFMiddleware(MiddlewareMixin):
 
             if self._match_pattern(request, rule):
                 print(f"DEBUG: RULE MATCHED! Rule: {rule.name}")
-                self._log_event(request, rule.rule_type, rule.name, effective_action)
+                self._log_event(request, rule.rule_type, rule, effective_action)
                 if effective_action == 'block':
                     print("DEBUG: Blocking request due to rule match")
                     return HttpResponseForbidden("<h1>403 Forbidden</h1><p>Your request has been blocked by the WAF.</p>")
