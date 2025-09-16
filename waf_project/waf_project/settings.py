@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "waf_project.waf_core",
     "waf_project.waf_engine",
+    "rest_framework",
 ]
 
 MIDDLEWARE = [

@@ -8,6 +8,7 @@
             {{ form.as_p }}
             <button type="submit" class="btn btn-primary w-100">Login</button>
         </form>
+        <p class="text-center mt-3">Don't have an account? <a href="{% url 'register' %}">Register here</a></p>
 
         {% if form.errors %}
             <div class="alert alert-danger mt-3">

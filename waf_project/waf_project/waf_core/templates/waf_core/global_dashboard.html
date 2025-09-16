@@ -2,65 +2,189 @@
 {% load static %}
 
 {% block content %}
-<div class="container">
-    <h1>🌐 Global Security Dashboard</h1>
-    <p>Welcome, {{ request.user.username }} (Super Admin)</p>
+<style>
+    /* General Styles */
+    .dashboard-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2.5rem 2rem;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        border-radius: 8px;
+        margin-bottom: 2rem;
+    }
+    .dashboard-header h1 {
+        font-size: 2.5rem;
+        font-weight: 300;
+        margin-bottom: 0.5rem;
+    }
+    .dashboard-header p {
+        font-size: 1.1rem;
+        opacity: 0.8;
+    }
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .stat-card {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        text-align: center;
+        border-left: 4px solid #667eea;
+    }
+    .stat-card h3 {
+        font-size: 1rem;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+    }
+    .stat-card .value {
+        font-size: 3rem;
+        font-weight: bold;
+        color: #333;
+    }
+    .stat-card.danger {
+        border-left-color: #e74c3c;
+    }
+    /* Tables */
+    .table-responsive {
+        overflow-x: auto;
+    }
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        margin-bottom: 2rem;
+        font-size: 0.9rem;
+    }
+    .data-table th, .data-table td {
+        padding: 1rem;
+        text-align: left;
+        border-bottom: 1px solid #e9ecef;
+    }
+    .data-table th {
+        background: #f8f9fa;
+        font-weight: 600;
+        color: #495057;
+    }
+    .data-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+    .data-table tbody tr:hover {
+        background: #f5f5f5;
+    }
+    /* Charts */
+    .chart-container {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        margin-bottom: 2rem;
+    }
+    .chart-container h2 {
+        margin-top: 0;
+    }
+</style>
 
-    <div class="stats">
-        <div class="stat-box">
-            <h3>Total Events (All Tenants)</h3>
-            <p>{{ total_events }}</p>
+<div class="container mt-4">
+    <div class="dashboard-header">
+        <h1>🌐 Global Security Dashboard</h1>
+        <p>Overview of all tenants as of {{ now|date:"F d, Y H:i" }}</p>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h3>Total Events</h3>
+            <div class="value">{{ total_events }}</div>
         </div>
-        <div class="stat-box">
+        <div class="stat-card danger">
             <h3>Blocked Events</h3>
-            <p>{{ blocked_events }}</p>
+            <div class="value">{{ blocked_events }}</div>
         </div>
     </div>
 
-    <h2>📊 Tenants Overview</h2>
-    <table border="1" cellpadding="8">
-        <tr>
-            <th>Tenant</th>
-            <th>Total Events</th>
-            <th>Blocked Events</th>
-        </tr>
-        {% for stats in tenants_stats %}
-        <tr>
-            <td>{{ stats.tenant.name }}</td>
-            <td>{{ stats.total_events }}</td>
-            <td>{{ stats.blocked_events }}</td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td colspan="3">No tenants found.</td>
-        </tr>
-        {% endfor %}
-    </table>
+    <div class="chart-container">
+        <h2>📊 Events per Tenant (24h)</h2>
+        <canvas id="tenantEventsChart"></canvas>
+    </div>
 
-    <h2>🕒 Recent Security Events</h2>
-    <table border="1" cellpadding="8">
-        <tr>
-            <th>Tenant</th>
-            <th>Rule</th>
-            <th>Event Type</th>
-            <th>Action Taken</th>
-            <th>Source IP</th>
-            <th>Timestamp</th>
-        </tr>
-        {% for event in recent_events %}
-        <tr>
-            <td>{{ event.tenant.name }}</td>
-            <td>{{ event.rule.name }}</td>
-            <td>{{ event.event_type }}</td>
-            <td>{{ event.action_taken }}</td>
-            <td>{{ event.source_ip }}</td>
-            <td>{{ event.timestamp }}</td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td colspan="6">No recent events found.</td>
-        </tr>
-        {% endfor %}
-    </table>
+    <div class="table-responsive">
+        <h2>🕒 Recent Security Events</h2>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Tenant</th>
+                    <th>Rule</th>
+                    <th>Event Type</th>
+                    <th>Action Taken</th>
+                    <th>Source IP</th>
+                    <th>Timestamp</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for event in recent_events %}
+                <tr>
+                    <td>{{ event.tenant.name }}</td>
+                    <td>{{ event.rule.name }}</td>
+                    <td>{{ event.event_type }}</td>
+                    <td>{{ event.action_taken }}</td>
+                    <td>{{ event.source_ip }}</td>
+                    <td>{{ event.timestamp|date:"Y-m-d H:i:s" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align: center;">No recent events found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('tenantEventsChart').getContext('2d');
+        const tenants_with_stats = JSON.parse('{{ tenants_with_stats | escapejs }}');
+
+        const labels = tenants_with_stats.map(tenant => tenant.tenant__name);
+        const totalEvents = tenants_with_stats.map(tenant => tenant.total_events_count);
+        const blockedEvents = tenants_with_stats.map(tenant => tenant.blocked_events_count);
+        
+        const chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Total Events',
+                        data: totalEvents,
+                        backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                    },
+                    {
+                        label: 'Blocked Events',
+                        data: blockedEvents,
+                        backgroundColor: 'rgba(231, 76, 60, 0.8)',
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { stacked: true },
+                    y: { stacked: true, beginAtZero: true }
+                }
+            }
+        });
+    });
+</script>
 {% endblock %}
