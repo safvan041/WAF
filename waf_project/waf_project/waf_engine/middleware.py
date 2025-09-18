@@ -98,7 +98,7 @@ class WAFMiddleware(MiddlewareMixin):
 
             if self._match_pattern(request, rule):
                 print(f"DEBUG: RULE MATCHED! Rule: {rule.name}")
-                self._log_event(request, rule.rule_type, rule, effective_action)
+                self._log_event(request.tenant, rule, rule.rule_type, effective_action, 'medium', client_ip, request)
                 if effective_action == 'block':
                     print("DEBUG: Blocking request due to rule match")
                     return HttpResponseForbidden("<h1>403 Forbidden</h1><p>Your request has been blocked by the WAF.</p>")
@@ -183,3 +183,32 @@ class WAFMiddleware(MiddlewareMixin):
             logger.info(f"Logged security event: {event.id}")
         except Exception as e:
             logger.error(f"Failed to log security event: {e}")
+
+    def _is_geoblocked(self, tenant, ip_address):
+        """
+        Checks if the given IP address is blocked based on geographic rules for the tenant.
+        This is a placeholder implementation. You should integrate with a geo-IP lookup service.
+        """
+        # Example: Check if there are any active geographic rules for the tenant
+        geo_rules = GeographicRule.objects.filter(tenant=tenant, is_active=True)
+        if not geo_rules.exists():
+            print("DEBUG: No geographic rules found for tenant")
+            return False
+
+        # You would use a geo-IP lookup here, e.g., geoip2 or similar
+        # For demonstration, let's assume all geo_rules block 'CN' (China)
+        # Replace this with actual geo-IP logic
+        country_code = self._get_country_code_from_ip(ip_address)
+        print(f"DEBUG: Country code for IP {ip_address}: {country_code}")
+        blocked_countries = [rule.country_code for rule in geo_rules]
+        is_blocked = country_code in blocked_countries
+        print(f"DEBUG: Geo-block check for {ip_address} ({country_code}): {is_blocked}")
+        return is_blocked
+
+    def _get_country_code_from_ip(self, ip_address):
+        """
+        Dummy implementation for getting country code from IP.
+        Replace with actual geo-IP lookup.
+        """
+        # For demonstration, always return 'CN'
+        return 'CN'

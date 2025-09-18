@@ -114,7 +114,9 @@
 
     <div class="chart-container">
         <h2>📊 Top Attacking IPs (24h)</h2>
-        <canvas id="topIPsChart"></canvas>
+        <div style="height: 300px;">
+            <canvas id="topIPsChart"></canvas>
+        </div>
     </div>
 
     <div class="table-responsive">
@@ -172,7 +174,7 @@
                 }]
             },
             options: {
-                responsive: true,
+                responsive: false,
                 maintainAspectRatio: false,
                 scales: {
                     y: {

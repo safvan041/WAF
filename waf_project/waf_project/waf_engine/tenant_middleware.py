@@ -11,7 +11,7 @@ class TenantMiddleware:
         host = request.META.get('HTTP_X_FORWARDED_HOST')
         if not host:
             # If that's not available, fall back to the standard Host header.
-            host = request.get_host().split(':')[0]
+            host = request.get_host()
         
         try:
             request.tenant = Tenant.objects.get(domain=host)
