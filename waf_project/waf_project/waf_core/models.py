@@ -129,9 +129,11 @@ class FirewallRule(models.Model):
     rule_type = models.CharField(max_length=50, choices=RULE_TYPES)
 
     # Rule configuration
-    pattern = models.TextField(help_text="Regex pattern or rule definition")
+    pattern = models.TextField(blank=True, # This line is changed to make the field optional
+                              help_text="Regex pattern or rule definition")
     action = models.CharField(max_length=20, choices=ACTION_CHOICES, default='block')
     severity = models.CharField(max_length=10, choices=SEVERITY_CHOICES, default='medium')
+
 
     # Targeting
     target_field = models.CharField(max_length=50, default='all',
@@ -316,7 +318,7 @@ class WAFConfiguration(models.Model):
     ]
 
     tenant = models.OneToOneField(Tenant, on_delete=models.CASCADE, related_name='waf_config')
-
+    
     # General settings
     protection_level = models.CharField(max_length=10, choices=PROTECTION_LEVELS, default='medium')
     is_enabled = models.BooleanField(default=True)

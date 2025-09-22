@@ -4,11 +4,13 @@ import re
 import ipaddress
 import json
 import logging
+import geoip2.database
+from django.contrib.gis.geoip2 import GeoIP2, GeoIP2Exception
 from django.utils.deprecation import MiddlewareMixin
 from django.http import HttpResponseForbidden
 from waf_project.waf_core.models import (
     Tenant,
-    TenantFirewallConfig,  # Updated model name
+    TenantFirewallConfig,  
     SecurityEvent,
     FirewallRule,
     IPWhitelist,
@@ -65,22 +67,17 @@ class WAFMiddleware(MiddlewareMixin):
         
         # Check IP against whitelists and blacklists
         if self._is_whitelisted(request.tenant, client_ip):
-            logger.info(f"Whitelisted IP: {client_ip} for tenant {request.tenant.name}")
-            return self.get_response(request)
+            return self._forward_request(request, request.tenant.domain)
 
         if self._is_blacklisted(request.tenant, client_ip):
-            logger.info(f"Blacklisted IP: {client_ip} for tenant {request.tenant.name}")
             self._log_event(request.tenant, None, 'ip_blacklist', 'block', 'critical', client_ip, request)
             return HttpResponseForbidden("<h1>403 Forbidden</h1><p>Your IP has been blacklisted.</p>")
 
-        # Check geographic blocking
-        if self._is_geoblocked(request.tenant, client_ip):
-            logger.info(f"Geoblocked IP: {client_ip} for tenant {request.tenant.name}")
-            # Placeholder for rule object
-            rule = FirewallRule.objects.filter(rule_type='geo_blocking').first() 
-            self._log_event(request.tenant, rule, 'geo_blocking', 'block', 'medium', client_ip, request)
-            return HttpResponseForbidden("<h1>403 Forbidden</h1><p>Access from your country is blocked.</p>")
-
+        if waf_config.geographic_blocking_enabled:
+            if self._is_geoblocked(request.tenant, client_ip):
+                rule = FirewallRule.objects.filter(rule_type='geo_blocking').first()
+                self._log_event(request.tenant, rule, 'geo_blocked', rule.action, rule.severity, client_ip, request)
+                return HttpResponseForbidden("<h1>403 Forbidden</h1><p>Access from your country is blocked.</p>")
 
         # Load active rules for the tenant
         tenant_rules = TenantFirewallConfig.objects.filter(
@@ -92,7 +89,12 @@ class WAFMiddleware(MiddlewareMixin):
         for config in tenant_rules:
             rule = config.rule
             effective_action = config.get_effective_action()
-            
+
+            # 🚨 Skip geo rules here, since already handled above
+            if rule.rule_type == "geo_blocking":
+                print(f"DEBUG: Skipping geo rule '{rule.name}' (already processed)")
+                continue
+
             print(f"DEBUG: Checking rule '{rule.name}' with pattern '{rule.pattern}'")
             print(f"DEBUG: Rule type: {rule.rule_type}, Action: {effective_action}")
 
@@ -106,10 +108,9 @@ class WAFMiddleware(MiddlewareMixin):
                     print(f"DEBUG: Rule matched but action is '{effective_action}', allowing request")
             else:
                 print(f"DEBUG: Rule '{rule.name}' did not match")
-
         print("DEBUG: No rules matched, allowing request")
-        response = self.get_response(request)
-        return response
+        return self.get_response(request)
+
 
     def _get_client_ip(self, request):
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
@@ -155,7 +156,7 @@ class WAFMiddleware(MiddlewareMixin):
                 print("DEBUG: Could not decode request body")
                 pass
                 
-        # Check headers (optional - you might want to be selective about which headers)
+        # Check headers (optional)
         # target_data += str(request.headers)
 
         if rule.pattern:
@@ -185,30 +186,37 @@ class WAFMiddleware(MiddlewareMixin):
             logger.error(f"Failed to log security event: {e}")
 
     def _is_geoblocked(self, tenant, ip_address):
-        """
-        Checks if the given IP address is blocked based on geographic rules for the tenant.
-        This is a placeholder implementation. You should integrate with a geo-IP lookup service.
-        """
-        # Example: Check if there are any active geographic rules for the tenant
         geo_rules = GeographicRule.objects.filter(tenant=tenant, is_active=True)
         if not geo_rules.exists():
-            print("DEBUG: No geographic rules found for tenant")
             return False
 
-        # You would use a geo-IP lookup here, e.g., geoip2 or similar
-        # For demonstration, let's assume all geo_rules block 'CN' (China)
-        # Replace this with actual geo-IP logic
         country_code = self._get_country_code_from_ip(ip_address)
-        print(f"DEBUG: Country code for IP {ip_address}: {country_code}")
+        print(f"DEBUG: Resolved country code for {ip_address}: {country_code}")
+
         blocked_countries = [rule.country_code for rule in geo_rules]
         is_blocked = country_code in blocked_countries
-        print(f"DEBUG: Geo-block check for {ip_address} ({country_code}): {is_blocked}")
+
+        print(f"DEBUG: Blocked countries for tenant: {blocked_countries}")
+        print(f"DEBUG: Is {country_code} blocked? {is_blocked}")
+
         return is_blocked
 
     def _get_country_code_from_ip(self, ip_address):
         """
-        Dummy implementation for getting country code from IP.
-        Replace with actual geo-IP lookup.
+        Get the ISO country code from an IP address using GeoLite2.
+        Returns None if lookup fails.
         """
-        # For demonstration, always return 'CN'
-        return 'CN'
+        try:
+            g = GeoIP2()
+            result = g.country(ip_address)
+            country_code = result.get("country_code")
+
+            logger.debug(f"Resolved country for {ip_address}: {result}")
+
+            return country_code
+        except GeoIP2Exception as e:
+            logger.error(f"GeoIP lookup failed for {ip_address}: {e}")
+            return None
+        except Exception as e:
+            logger.exception(f"Unexpected error in GeoIP lookup for {ip_address}")
+            return None

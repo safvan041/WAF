@@ -137,3 +137,5 @@ AUTH_USER_MODEL = "waf_core.User"
 
 LOGIN_REDIRECT_URL = 'dashboard'   # Redirect after successful login
 LOGOUT_REDIRECT_URL = 'login'      # Redirect after logout
+
+GEOIP_PATH = BASE_DIR / 'waf_project' / 'geoip'
