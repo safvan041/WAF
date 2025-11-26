@@ -140,37 +140,73 @@ class WAFMiddleware(MiddlewareMixin):
 
     def _match_pattern(self, request, rule):
         from urllib.parse import unquote
+        import html
         
-        target_data = ""
-        
-        # Always check the full path and query string (both raw and decoded)
-        full_path = request.get_full_path()
-        decoded_path = unquote(full_path)
-        
-        target_data += full_path + " " + decoded_path
-        print(f"DEBUG: Target data for pattern matching: '{target_data}'")
+        # Helper to normalize data
+        def normalize_data(data):
+            decoded_list = set()
+            decoded_list.add(data)
             
-        # Check POST data
+            # 1. URL Decode (Single & Double)
+            try:
+                u1 = unquote(data)
+                decoded_list.add(u1)
+                u2 = unquote(u1)
+                decoded_list.add(u2)
+            except: pass
+            
+            # 2. HTML Entity Decode
+            try:
+                h1 = html.unescape(data)
+                decoded_list.add(h1)
+            except: pass
+            
+            # 3. Unicode Decode (for \u003c type attacks)
+            try:
+                # This is a bit risky on raw strings, but useful for JSON bodies
+                if "\\u" in data:
+                    u_decode = data.encode('utf-8').decode('unicode_escape')
+                    decoded_list.add(u_decode)
+            except: pass
+            
+            return decoded_list
+
+        # Collect all parts of the request
+        raw_targets = []
+        
+        # Path and Query
+        raw_targets.append(request.path)
+        raw_targets.append(request.META.get('QUERY_STRING', ''))
+        
+        # Request Body
         if request.method in ['POST', 'PUT', 'PATCH']:
             try:
-                # Add the request body to the target data
                 body_data = request.body.decode('utf-8')
-                target_data += body_data
-                print(f"DEBUG: Added body data: '{body_data}'")
+                raw_targets.append(body_data)
             except UnicodeDecodeError:
-                print("DEBUG: Could not decode request body")
                 pass
                 
-        # Check headers (optional)
-        # target_data += str(request.headers)
+        # Headers (specific ones that are attack vectors)
+        for header in ['HTTP_USER_AGENT', 'HTTP_REFERER', 'HTTP_COOKIE']:
+            val = request.META.get(header)
+            if val:
+                raw_targets.append(val)
 
+        # Check pattern against ALL normalized versions of ALL data
         if rule.pattern:
-            print(f"DEBUG: Checking pattern '{rule.pattern}' against '{target_data}'")
-            match = re.search(rule.pattern, target_data, re.IGNORECASE)
-            print(f"DEBUG: Pattern match result: {bool(match)}")
-            if match:
-                print(f"DEBUG: Matched text: '{match.group()}'")
-            return match
+            print(f"DEBUG: Checking rule '{rule.name}'")
+            for raw_data in raw_targets:
+                # Get all variations (decoded, unescaped, etc)
+                variations = normalize_data(raw_data)
+                
+                for target in variations:
+                    # Skip empty strings
+                    if not target: continue
+                    
+                    match = re.search(rule.pattern, target, re.IGNORECASE)
+                    if match:
+                        print(f"DEBUG: RULE MATCHED! Pattern: '{rule.pattern}' matched text: '{match.group()}' in data: '{target[:50]}...'")
+                        return match
         return False
 
     def _log_event(self, tenant, rule, event_type, action_taken, severity, client_ip, request):
