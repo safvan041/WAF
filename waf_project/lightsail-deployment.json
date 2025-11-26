@@ -1,0 +1,30 @@
+{
+    "serviceName": "waf-app",
+    "containers": {
+        "waf-app": {
+            "image": ":waf-app.waf-app-latest.1",
+            "ports": {
+                "8000": "HTTP"
+            },
+            "environment": {
+                "DJANGO_SETTINGS_MODULE": "waf_project.settings_production",
+                "DEBUG": "False",
+                "SECRET_KEY": "REPLACE_WITH_GENERATED_SECRET_KEY",
+                "ALLOWED_HOSTS": "*.awsapprunner.com,*.lightsail.aws",
+                "DB_ENGINE": "sqlite"
+            }
+        }
+    },
+    "publicEndpoint": {
+        "containerName": "waf-app",
+        "containerPort": 8000,
+        "healthCheck": {
+            "path": "/health/",
+            "intervalSeconds": 30,
+            "timeoutSeconds": 5,
+            "successCodes": "200",
+            "healthyThreshold": 2,
+            "unhealthyThreshold": 2
+        }
+    }
+}

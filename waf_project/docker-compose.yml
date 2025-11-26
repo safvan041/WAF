@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: waf_postgres
+    environment:
+      POSTGRES_DB: waf_db
+      POSTGRES_USER: waf_user
+      POSTGRES_PASSWORD: waf_password_dev
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U waf_user -d waf_db" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - waf_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: waf_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - waf_network
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: waf_app
+    volumes:
+      # - .:/app  # Commented out to prevent overwriting container's /app directory
+      - static_volume:/app/staticfiles
+      - media_volume:/app/mediafiles
+    ports:
+      - "8000:8000"
+    environment:
+      - DJANGO_SETTINGS_MODULE=waf_project.settings_production
+      - DEBUG=True
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - DATABASE_URL=postgresql://waf_user:waf_password_dev@db:5432/waf_db
+      - REDIS_URL=redis://redis:6379/0
+      - ALLOWED_HOSTS=localhost,127.0.0.1
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health/" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - waf_network
+
+volumes:
+  postgres_data:
+  static_volume:
+  media_volume:
+
+
+networks:
+  waf_network:
+    driver: bridge

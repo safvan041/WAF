@@ -1,0 +1,48 @@
+{
+    "serviceName": "waf-app-service",
+    "cluster": "waf-cluster",
+    "taskDefinition": "waf-app-task",
+    "loadBalancers": [
+        {
+            "targetGroupArn": "arn:aws:elasticloadbalancing:YOUR_REGION:YOUR_ACCOUNT_ID:targetgroup/waf-app-tg/XXXXX",
+            "containerName": "waf-app",
+            "containerPort": 8000
+        }
+    ],
+    "desiredCount": 2,
+    "launchType": "FARGATE",
+    "platformVersion": "LATEST",
+    "networkConfiguration": {
+        "awsvpcConfiguration": {
+            "subnets": [
+                "subnet-XXXXXXXXX",
+                "subnet-YYYYYYYYY"
+            ],
+            "securityGroups": [
+                "sg-XXXXXXXXX"
+            ],
+            "assignPublicIp": "ENABLED"
+        }
+    },
+    "healthCheckGracePeriodSeconds": 60,
+    "deploymentConfiguration": {
+        "maximumPercent": 200,
+        "minimumHealthyPercent": 100,
+        "deploymentCircuitBreaker": {
+            "enable": true,
+            "rollback": true
+        }
+    },
+    "enableECSManagedTags": true,
+    "propagateTags": "SERVICE",
+    "tags": [
+        {
+            "key": "Environment",
+            "value": "production"
+        },
+        {
+            "key": "Application",
+            "value": "waf-app"
+        }
+    ]
+}

@@ -1,0 +1,34 @@
+# Files to exclude when deploying to Lightsail
+# (This is just for reference - Lightsail uses .dockerignore)
+
+# Local development files
+.env
+.env.local
+docker-compose.yml
+db.sqlite3
+
+# Documentation
+*.md
+README.md
+AWS_DEPLOYMENT.md
+LIGHTSAIL_DEPLOYMENT.md
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs
+*.log
+
+# AWS deployment files (for ECS, not needed for Lightsail)
+aws/
+deploy.sh

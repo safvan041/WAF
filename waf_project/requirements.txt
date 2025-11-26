@@ -1,0 +1,38 @@
+# Core Django
+Django==5.2.6
+djangorestframework==3.15.2
+
+# Database
+psycopg2-binary==2.9.9
+dj-database-url==2.2.0
+
+# WSGI Server
+gunicorn==23.0.0
+
+# GeoIP
+geoip2==4.8.0
+maxminddb==2.6.2
+
+# AWS SDK
+boto3==1.40.72
+
+# Environment variables
+python-dotenv==1.2.1
+
+# Security and utilities
+PyYAML==6.0.3
+requests==2.32.3
+
+# Static files
+whitenoise==6.8.2
+
+# Caching (optional - for Redis)
+redis==5.2.1
+django-redis==5.4.0
+
+# Monitoring and logging
+sentry-sdk==2.19.2
+
+# Testing (development only)
+pytest==9.0.1
+pytest-django==4.9.0
