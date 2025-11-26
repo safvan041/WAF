@@ -139,10 +139,15 @@ class WAFMiddleware(MiddlewareMixin):
         return is_blacklisted
 
     def _match_pattern(self, request, rule):
+        from urllib.parse import unquote
+        
         target_data = ""
         
-        # Always check the full path and query string
-        target_data += request.get_full_path()
+        # Always check the full path and query string (both raw and decoded)
+        full_path = request.get_full_path()
+        decoded_path = unquote(full_path)
+        
+        target_data += full_path + " " + decoded_path
         print(f"DEBUG: Target data for pattern matching: '{target_data}'")
             
         # Check POST data
