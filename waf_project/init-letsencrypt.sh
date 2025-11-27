@@ -22,7 +22,7 @@ domains=(demo.waf-app.site)
 rsa_key_size=4096
 data_path="./certbot"
 email="safvanbakkar041@gmail.com"
-staging=1   # 1 = use Let's Encrypt STAGING (test), 0 = PRODUCTION
+staging=0   # 1 = use Let's Encrypt STAGING (test), 0 = PRODUCTION
 
 echo "### Checking for existing certificates..."
 if [ -d "$data_path/conf/live/${domains[0]}" ]; then
