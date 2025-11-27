@@ -3,10 +3,17 @@
 # init-letsencrypt.sh - Initialize Let's Encrypt certificates for Docker Compose setup
 # This script creates dummy certificates, starts nginx, and then requests real certificates
 
-if ! [ -x "$(command -v docker-compose)" ]; then
-  echo 'Error: docker-compose is not installed.' >&2
-  exit 1
+# Detect docker compose command (v2 uses 'docker compose', v1 uses 'docker-compose')
+if command -v docker-compose &> /dev/null; then
+    DOCKER_COMPOSE="docker-compose"
+elif docker compose version &> /dev/null; then
+    DOCKER_COMPOSE="docker compose"
+else
+    echo 'Error: Neither docker-compose nor docker compose is available.' >&2
+    exit 1
 fi
+
+echo "Using: $DOCKER_COMPOSE"
 
 # Configuration
 domains=(demo.waf-app.site)
