@@ -1,0 +1,63 @@
+{% extends "waf_core/base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="glass-card p-5">
+            <div class="text-center mb-5">
+                <h1 class="display-5 fw-bold text-gradient">📋 Approval Requirements</h1>
+                <p class="lead text-muted">Information required to activate your WAF Shield account.</p>
+            </div>
+
+            <div class="mb-4">
+                <p>To ensure the security and legitimacy of all tenants on our platform, we require a manual
+                    verification process. Please email our support team with the following details to expedite your
+                    approval.</p>
+            </div>
+
+            <div class="card bg-dark border-secondary mb-4">
+                <div class="card-header border-secondary">
+                    <h5 class="mb-0 text-light">📧 Email to: <a href="mailto:safvanbakkar041@gmail.com"
+                            class="text-primary">safvanbakkar041@gmail.com</a></h5>
+                </div>
+                <div class="card-body">
+                    <h6 class="card-title text-muted text-uppercase small fw-bold mb-3">Required Information</h6>
+                    <ul class="list-group list-group-flush bg-transparent">
+                        <li class="list-group-item bg-transparent text-light border-secondary">
+                            <strong>1. Full Name & Role:</strong> Your legal name and your role within the organization.
+                        </li>
+                        <li class="list-group-item bg-transparent text-light border-secondary">
+                            <strong>2. Authority Proof:</strong> A brief statement or attachment proving your authority
+                            to manage security for the requested domain (e.g., DNS ownership proof, company email
+                            verification).
+                        </li>
+                        <li class="list-group-item bg-transparent text-light border-secondary">
+                            <strong>3. Domain Specifics:</strong>
+                            <ul class="mt-2 text-light opacity-75">
+                                <li>Primary Domain (e.g., example.com)</li>
+                                <li>Subdomains to protect (e.g., api.example.com)</li>
+                                <li>Expected traffic volume (requests/day)</li>
+                            </ul>
+                        </li>
+                        <li class="list-group-item bg-transparent text-light border-secondary">
+                            <strong>4. Predefined Firewall Rules:</strong>
+                            <p class="small text-secondary mb-0 mt-1">Specify if you need any specific rules enabled
+                                immediately upon activation:</p>
+                            <ul class="mt-2 text-light opacity-75">
+                                <li>SQL Injection Protection (High/Medium/Low)</li>
+                                <li>XSS Protection</li>
+                                <li>Rate Limiting (Standard: 1000 req/hour)</li>
+                                <li>Geo-blocking (List countries to block)</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="text-center">
+                <a href="{% url 'dashboard' %}" class="btn btn-outline-light">Back to Dashboard</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

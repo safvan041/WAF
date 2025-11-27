@@ -79,3 +79,6 @@ def register(request):
     else:
         form = TenantRegistrationForm()
     return render(request, 'waf_core/register.html', {'form': form})
+
+def rules_list(request):
+    return render(request, 'waf_core/rules_list.html')

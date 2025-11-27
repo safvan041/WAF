@@ -182,10 +182,28 @@
             <h2 class="display-5 fw-bold text-gradient mb-3">Account Pending Approval</h2>
             <p class="lead text-muted mb-4">
                 Thank you for registering! Your account is currently under review by our administrators.
-                <br>
-                Please check back later or contact support if you have any questions.
             </p>
-            <a href="{% url 'logout' %}" class="btn btn-outline-light px-4 py-2">Logout</a>
+
+            <div class="alert alert-dark border-secondary d-inline-block text-center mb-4 p-5"
+                style="max-width: 600px;">
+                <p class="mb-4 lead fs-6">To expedite your approval, please contact support with the required details.
+                </p>
+                <div class="mb-4">
+                    <a href="mailto:safvanbakkar041@gmail.com" class="btn btn-primary btn-lg px-5">
+                        <i class="fas fa-envelope me-2"></i>Contact Support
+                    </a>
+                </div>
+                <p class="mb-0 small text-light">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Check the <a href="{% url 'approval_rules' %}"
+                        class="text-light text-decoration-underline fw-bold">Approval
+                        Requirements & Rules List</a> for what to include.
+                </p>
+            </div>
+
+            <div>
+                <a href="{% url 'logout' %}" class="btn btn-outline-light px-4 py-2">Logout</a>
+            </div>
         </div>
     </div>
 </div>

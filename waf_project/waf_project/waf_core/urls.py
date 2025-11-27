@@ -10,6 +10,8 @@ urlpatterns = [
     path('', lambda request: redirect('login')),
 
     path('dashboard/', views.dashboard_view, name='dashboard'),
+    path('approval-rules/', views.rules_list, name='approval_rules'),
+
 
     # Authentication
     path('register/', views.register, name='register'),
