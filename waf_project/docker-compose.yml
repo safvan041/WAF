@@ -46,11 +46,17 @@ services:
       - "8000"
     environment:
       - DJANGO_SETTINGS_MODULE=waf_project.settings_production
-      - DEBUG=True
-      - SECRET_KEY=dev-secret-key-change-in-production
+      - DEBUG=False
+      - SECRET_KEY=django-insecure-u9#x8!v7@y6$z5%w4^t3&s2*r1(q0)p
       - DATABASE_URL=postgresql://waf_user:waf_password_dev@db:5432/waf_db
       - REDIS_URL=redis://redis:6379/0
-      - ALLOWED_HOSTS=localhost,127.0.0.1
+      - ALLOWED_HOSTS=localhost,127.0.0.1,demo.waf-app.site
+      - LOG_LEVEL=INFO
+      - SECURE_SSL_REDIRECT=False
+      - CREATE_SUPERUSER=true
+      - DJANGO_SUPERUSER_USERNAME=safvan
+      - DJANGO_SUPERUSER_EMAIL=safvanbakkar041@gmail.com
+      - DJANGO_SUPERUSER_PASSWORD=d9mrtuc9a1
     depends_on:
       db:
         condition: service_healthy
