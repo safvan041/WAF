@@ -2,12 +2,17 @@
 {% load static %}
 
 {% block content %}
-{% if tenant %}
+{% if user.is_superuser or user.role != 'user' %}
 <div class="row mb-4">
     <div class="col-12">
         <div class="glass-card text-center py-4">
+            {% if user.is_superuser %}
+            <h1 class="display-5 fw-bold text-gradient">🛡️ Global Dashboard</h1>
+            <p class="lead text-muted mb-0">Security Overview for All Tenants</p>
+            {% else %}
             <h1 class="display-5 fw-bold text-gradient">🛡️ {{ tenant.name }}</h1>
             <p class="lead text-muted mb-0">Security Overview for {{ tenant.domain }}</p>
+            {% endif %}
         </div>
     </div>
 </div>
