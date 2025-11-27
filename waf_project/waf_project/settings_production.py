@@ -168,14 +168,25 @@ GEOIP_PATH = os.environ.get('GEOIP_PATH', BASE_DIR / 'waf_project' / 'geoip')
 # Security Settings
 if not DEBUG:
     SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'True').lower() == 'true'
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = SECURE_SSL_REDIRECT
+    CSRF_COOKIE_SECURE = SECURE_SSL_REDIRECT
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
     X_FRAME_OPTIONS = 'DENY'
+
+# CSRF Trusted Origins (needed for Nginx proxy)
+raw_csrf_origins = os.environ.get("CSRF_TRUSTED_ORIGINS", "")
+if raw_csrf_origins:
+    CSRF_TRUSTED_ORIGINS = [o.strip() for o in raw_csrf_origins.split(",") if o.strip()]
+else:
+    CSRF_TRUSTED_ORIGINS = []
+    if not SECURE_SSL_REDIRECT and ALLOWED_HOSTS:
+         # If no SSL, trust the allowed hosts with http scheme
+         CSRF_TRUSTED_ORIGINS = [f"http://{host}" for host in ALLOWED_HOSTS if host != '*']
+
 
 # CORS Settings (if needed)
 raw_cors = os.environ.get("CORS_ALLOWED_ORIGINS", "")

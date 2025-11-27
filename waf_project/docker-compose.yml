@@ -51,6 +51,7 @@ services:
       - DATABASE_URL=postgresql://waf_user:waf_password_dev@db:5432/waf_db
       - REDIS_URL=redis://redis:6379/0
       - ALLOWED_HOSTS=localhost,127.0.0.1,demo.waf-app.site
+      - CSRF_TRUSTED_ORIGINS=http://demo.waf-app.site
       - LOG_LEVEL=INFO
       - SECURE_SSL_REDIRECT=False
       - CREATE_SUPERUSER=true
