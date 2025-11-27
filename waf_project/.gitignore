@@ -8,3 +8,7 @@ venv/
 *.sqlite3
 media/
 staticfiles/
+
+# SSL Certificates
+nginx/certs/
+certbot/

@@ -176,6 +176,7 @@ if not DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
     X_FRAME_OPTIONS = 'DENY'
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # CSRF Trusted Origins (needed for Nginx proxy)
 raw_csrf_origins = os.environ.get("CSRF_TRUSTED_ORIGINS", "")

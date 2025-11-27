@@ -59,9 +59,9 @@ services:
       - DATABASE_URL=postgresql://waf_user:waf_password_dev@db:5432/waf_db
       - REDIS_URL=redis://redis:6379/0
       - ALLOWED_HOSTS=localhost,127.0.0.1,demo.waf-app.site
-      - CSRF_TRUSTED_ORIGINS=http://demo.waf-app.site
+      - CSRF_TRUSTED_ORIGINS=http://demo.waf-app.site,https://demo.waf-app.site,https://localhost
       - LOG_LEVEL=INFO
-      - SECURE_SSL_REDIRECT=False
+      - SECURE_SSL_REDIRECT=True
       - CREATE_SUPERUSER=true
       - DJANGO_SUPERUSER_USERNAME=safvan
       - DJANGO_SUPERUSER_EMAIL=safvanbakkar041@gmail.com
@@ -89,19 +89,33 @@ services:
     container_name: waf_nginx
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/mediafiles
+      - certbot-etc:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
     depends_on:
       web:
         condition: service_healthy
     networks:
       - waf_network
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: waf_certbot
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
 
 volumes:
   postgres_data:
   static_volume:
   media_volume:
+  certbot-etc:
+  certbot-www:
 
 
 networks:
