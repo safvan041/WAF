@@ -22,7 +22,7 @@ domains=(demo.waf-app.site)
 rsa_key_size=4096
 data_path="./certbot"
 email="safvanbakkar041@gmail.com"
-staging=1 # Set to 1 for testing, 0 for production
+staging=1   # 1 = use Let's Encrypt STAGING (test), 0 = PRODUCTION
 
 echo "### Checking for existing certificates..."
 if [ -d "$data_path/conf/live/${domains[0]}" ]; then
@@ -42,7 +42,7 @@ upstream waf_app {
 server {
     listen 80;
     server_name demo.waf-app.site localhost 127.0.0.1;
-    
+
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
     }
@@ -57,7 +57,7 @@ server {
 }
 EOF
 
-# Backup original config
+# Backup original config once
 if [ ! -f nginx/nginx-ssl.conf ]; then
     cp nginx/nginx.conf nginx/nginx-ssl.conf
 fi
@@ -83,11 +83,11 @@ done
 # Email argument
 case "$email" in
   "") email_arg="--register-unsafely-without-email" ;;
-  *) email_arg="--email $email" ;;
+  *)  email_arg="--email $email" ;;
 esac
 
-# Staging argument
-if [ $staging != "0" ]; then 
+# Staging / production
+if [ "$staging" != "0" ]; then
     staging_arg="--staging"
     echo "### Using Let's Encrypt STAGING environment (for testing)"
 else
@@ -95,8 +95,11 @@ else
     echo "### Using Let's Encrypt PRODUCTION environment"
 fi
 
-# Request certificate
-$DOCKER_COMPOSE run --rm certbot certonly --webroot \
+# IMPORTANT: override entrypoint so we call certbot directly, not the renew-wrapper
+$DOCKER_COMPOSE run --rm \
+  --entrypoint certbot \
+  certbot \
+  certonly --webroot \
   -w /var/www/certbot \
   $staging_arg \
   $email_arg \
@@ -106,30 +109,23 @@ $DOCKER_COMPOSE run --rm certbot certonly --webroot \
   --non-interactive \
   --force-renewal
 
-if [ $? -eq 0 ]; then
-    echo "### Certificate obtained successfully!"
-    
-    echo "### Restoring SSL-enabled Nginx config..."
-    cp nginx/nginx-ssl.conf nginx/nginx.conf
-    
-    echo "### Restarting Nginx with SSL..."
-    $DOCKER_COMPOSE restart nginx
-    
-    echo "### Starting Certbot service for auto-renewal..."
-    $DOCKER_COMPOSE up -d certbot
-    
-    echo ""
-    echo "✅ SUCCESS! Your site should now be accessible via HTTPS"
-    echo ""
-    if [ $staging != "0" ]; then
-        echo "⚠️  NOTE: You used STAGING mode. The certificate will show a browser warning."
-        echo "   To get a trusted certificate, set staging=0 and run this script again."
-    fi
-    echo ""
-    echo "Test your site: https://${domains[0]}"
-else
-    echo "### Certificate request failed!"
-    echo "Restoring original config..."
-    cp nginx/nginx-ssl.conf nginx/nginx.conf
-    exit 1
+echo "### Certificate obtained successfully!"
+
+echo "### Restoring SSL-enabled Nginx config..."
+cp nginx/nginx-ssl.conf nginx/nginx.conf
+
+echo "### Restarting Nginx with SSL..."
+$DOCKER_COMPOSE restart nginx
+
+echo "### Starting Certbot service for auto-renewal..."
+$DOCKER_COMPOSE up -d certbot
+
+echo ""
+echo "✅ SUCCESS! Your site should now be accessible via HTTPS"
+echo ""
+if [ "$staging" != "0" ]; then
+    echo "⚠️  NOTE: You used STAGING mode. The certificate will show a browser warning."
+    echo "   To get a trusted certificate, set staging=0 and run this script again."
 fi
+echo ""
+echo "Test your site: https://${domains[0]}"
