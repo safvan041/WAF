@@ -19,6 +19,10 @@ services:
       retries: 5
     networks:
       - waf_network
+    deploy:
+      resources:
+        limits:
+          memory: 256m
 
   redis:
     image: redis:7-alpine
@@ -32,6 +36,10 @@ services:
       retries: 5
     networks:
       - waf_network
+    deploy:
+      resources:
+        limits:
+          memory: 128m
 
   web:
     build:
@@ -71,6 +79,10 @@ services:
       start_period: 40s
     networks:
       - waf_network
+    deploy:
+      resources:
+        limits:
+          memory: 400m
 
   nginx:
     build: ./nginx
