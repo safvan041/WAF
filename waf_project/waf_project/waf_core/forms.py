@@ -12,10 +12,16 @@ class TenantRegistrationForm(UserCreationForm):
         model = User
         fields = UserCreationForm.Meta.fields + ('name', 'domain', 'contact_email')
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs['class'] = 'form-control'
+
     @transaction.atomic
     def save(self, commit=True):
         # Create the user first
         user = super().save(commit=False)
+        user.role = 'user'  # Set default role to 'user' (pending approval)
         
         # Create the tenant and link it to the user
         tenant = Tenant.objects.create(

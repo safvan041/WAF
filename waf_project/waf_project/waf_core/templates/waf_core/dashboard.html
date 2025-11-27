@@ -2,165 +2,135 @@
 {% load static %}
 
 {% block content %}
-<style>
-    /* General Styles */
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; color: #333; }
-    .container { max-width: 1200px; margin: 0 auto; display: grid; gap: 20px; }
-    .dashboard-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 2.5rem 2rem;
-        text-align: center;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        border-radius: 8px;
-        margin-bottom: 2rem;
-    }
-    .dashboard-header h1 {
-        font-size: 2.5rem;
-        font-weight: 300;
-        margin-bottom: 0.5rem;
-    }
-    .dashboard-header p {
-        font-size: 1.1rem;
-        opacity: 0.8;
-    }
-    .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 1.5rem;
-        margin-bottom: 2rem;
-    }
-    .stat-card {
-        background: white;
-        padding: 2rem;
-        border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        text-align: center;
-        border-left: 4px solid #667eea;
-    }
-    .stat-card h3 {
-        font-size: 1rem;
-        color: #666;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 0.5rem;
-    }
-    .stat-card .value {
-        font-size: 3rem;
-        font-weight: bold;
-        color: #333;
-    }
-    .stat-card.danger {
-        border-left-color: #e74c3c;
-    }
-    /* Tables */
-    .table-responsive {
-        overflow-x: auto;
-    }
-    .data-table {
-        width: 100%;
-        border-collapse: collapse;
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        margin-bottom: 2rem;
-        font-size: 0.9rem;
-    }
-    .data-table th, .data-table td {
-        padding: 1rem;
-        text-align: left;
-        border-bottom: 1px solid #e9ecef;
-    }
-    .data-table th {
-        background: #f8f9fa;
-        font-weight: 600;
-        color: #495057;
-    }
-    .data-table tbody tr:last-child td {
-        border-bottom: none;
-    }
-    .data-table tbody tr:hover {
-        background: #f5f5f5;
-    }
-    /* Charts */
-    .chart-container {
-        background: white;
-        padding: 2rem;
-        border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        margin-bottom: 2rem;
-    }
-    .chart-container h2 {
-        margin-top: 0;
-    }
-</style>
-
-<div class="container mt-4">
-    <div class="dashboard-header">
-        <h1>🛡️ {{ tenant.name }} - WAF Dashboard</h1>
-        <p>Your WAF security overview for {{ tenant.domain }}</p>
-    </div>
-
-    <div class="stats-grid">
-        <div class="stat-card">
-            <h3>Total Events (24h)</h3>
-            <div class="value">{{ total_events }}</div>
-        </div>
-        <div class="stat-card danger">
-            <h3>Blocked Events (24h)</h3>
-            <div class="value">{{ blocked_events }}</div>
+{% if tenant %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="glass-card text-center py-4">
+            <h1 class="display-5 fw-bold text-gradient">🛡️ {{ tenant.name }}</h1>
+            <p class="lead text-muted mb-0">Security Overview for {{ tenant.domain }}</p>
         </div>
     </div>
+</div>
 
-    <div class="chart-container">
-        <h2>📊 Top Attacking IPs (24h)</h2>
-        <div style="height: 300px;">
-            <canvas id="topIPsChart"></canvas>
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="glass-card h-100 text-center">
+            <h3 class="text-muted text-uppercase small fw-bold mb-3">Total Events (24h)</h3>
+            <div class="display-4 fw-bold text-primary">{{ total_events }}</div>
         </div>
     </div>
+    <div class="col-md-6">
+        <div class="glass-card h-100 text-center" style="border-color: rgba(239, 68, 68, 0.3);">
+            <h3 class="text-muted text-uppercase small fw-bold mb-3">Blocked Events (24h)</h3>
+            <div class="display-4 fw-bold text-danger">{{ blocked_events }}</div>
+        </div>
+    </div>
+</div>
 
-    <div class="table-responsive">
-        <h2>🕒 Recent Security Events</h2>
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Timestamp</th>
-                    <th>IP Address</th>
-                    <th>Event Type</th>
-                    <th>Rule Name</th>
-                    <th>Action Taken</th>
-                    <th>Severity</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for event in recent_events %}
-                <tr>
-                    <td>{{ event.timestamp|date:"Y-m-d H:i:s" }}</td>
-                    <td>{{ event.source_ip }}</td>
-                    <td>{{ event.event_type }}</td>
-                    <td>{{ event.rule_name }}</td>
-                    <td>{{ event.action_taken }}</td>
-                    <td>{{ event.severity }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="6" style="text-align: center;">No security events recorded in the last 24 hours.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="glass-card">
+            <h4 class="mb-4">📊 Top Attacking IPs (24h)</h4>
+            <div style="height: 300px;">
+                <canvas id="topIPsChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="glass-card">
+            <h4 class="mb-4">🕒 Recent Security Events</h4>
+            <div class="table-responsive">
+                <table class="table table-dark table-hover table-borderless mb-0">
+                    <thead class="text-muted text-uppercase small">
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>IP Address</th>
+                            <th>Event Type</th>
+                            <th>Rule Name</th>
+                            <th>Action Taken</th>
+                            <th>Severity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for event in recent_events %}
+                        <tr>
+                            <td>{{ event.timestamp|date:"Y-m-d H:i:s" }}</td>
+                            <td><span class="badge bg-secondary font-monospace">{{ event.source_ip }}</span></td>
+                            <td>{{ event.event_type }}</td>
+                            <td>{{ event.rule_name }}</td>
+                            <td>
+                                {% if event.action_taken == 'BLOCK' %}
+                                <span class="badge bg-danger">BLOCK</span>
+                                {% else %}
+                                <span class="badge bg-success">LOG</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ event.severity }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">No security events recorded in the last
+                                24 hours.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if recent_events.has_other_pages %}
+            <nav aria-label="Security events pagination" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if recent_events.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link bg-transparent text-primary border-primary"
+                            href="?page={{ recent_events.previous_page_number }}">&laquo; Previous</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link bg-transparent text-muted border-secondary">&laquo; Previous</span>
+                    </li>
+                    {% endif %}
+
+                    <li class="page-item disabled">
+                        <span class="page-link bg-transparent text-light border-0">
+                            Page {{ recent_events.number }} of {{ recent_events.paginator.num_pages }}
+                        </span>
+                    </li>
+
+                    {% if recent_events.has_next %}
+                    <li class="page-item">
+                        <a class="page-link bg-transparent text-primary border-primary"
+                            href="?page={{ recent_events.next_page_number }}">Next &raquo;</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link bg-transparent text-muted border-secondary">Next &raquo;</span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         const ctx = document.getElementById('topIPsChart').getContext('2d');
         const topIPsData = JSON.parse('{{ top_ips_json|safe }}');
-        
+
         const labels = topIPsData.map(item => item.source_ip);
         const data = topIPsData.map(item => item.count);
-        
+
+        // Chart.js Dark Theme Defaults
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.borderColor = 'rgba(148, 163, 184, 0.1)';
+
         new Chart(ctx, {
             type: 'bar',
             data: {
@@ -168,21 +138,51 @@
                 datasets: [{
                     label: 'Number of Attacks',
                     data: data,
-                    backgroundColor: 'rgba(102, 126, 234, 0.8)',
-                    borderColor: 'rgba(102, 126, 234, 1)',
-                    borderWidth: 1
+                    backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    borderWidth: 1,
+                    borderRadius: 4
                 }]
             },
             options: {
-                responsive: false,
+                responsive: true,
                 maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
                 scales: {
                     y: {
-                        beginAtZero: true
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(148, 163, 184, 0.1)'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        }
                     }
                 }
             }
         });
     });
 </script>
+{% else %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-8 text-center">
+        <div class="glass-card py-5">
+            <div class="display-1 mb-4">⏳</div>
+            <h2 class="display-5 fw-bold text-gradient mb-3">Account Pending Approval</h2>
+            <p class="lead text-muted mb-4">
+                Thank you for registering! Your account is currently under review by our administrators.
+                <br>
+                Please check back later or contact support if you have any questions.
+            </p>
+            <a href="{% url 'logout' %}" class="btn btn-outline-light px-4 py-2">Logout</a>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}

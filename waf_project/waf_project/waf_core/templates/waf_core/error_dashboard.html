@@ -1,12 +1,23 @@
 {% extends "waf_core/base.html" %}
 
 {% block content %}
-<div class="container">
-    <h1 style="color: red;">⚠ Access Denied</h1>
-    <p>{{ message }}</p>
-
-    <div style="margin-top: 20px;">
-        <a href="{% url 'logout' %}">Logout</a>
+<div class="row justify-content-center align-items-center" style="min-height: 70vh;">
+    <div class="col-md-6 text-center">
+        <div class="glass-card">
+            <h1 class="display-4 text-danger mb-3">Access Pending</h1>
+            <p class="lead mb-4">{{ message }}</p>
+            {% if superuser_email %}
+            <a href="mailto:{{ superuser_email }}" class="btn btn-primary btn-lg">
+                Contact Admin
+            </a>
+            {% endif %}
+            <div class="mt-4">
+                <form method="post" action="{% url 'logout' %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-light btn-sm">Logout</button>
+                </form>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

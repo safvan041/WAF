@@ -157,7 +157,7 @@ MEDIA_ROOT = BASE_DIR / "mediafiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Authentication
-LOGIN_URL = '/admin/login/'
+LOGIN_URL = 'login'
 AUTH_USER_MODEL = "waf_core.User"
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
