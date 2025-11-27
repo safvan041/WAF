@@ -42,8 +42,8 @@ services:
       # - .:/app  # Commented out to prevent overwriting container's /app directory
       - static_volume:/app/staticfiles
       - media_volume:/app/mediafiles
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     environment:
       - DJANGO_SETTINGS_MODULE=waf_project.settings_production
       - DEBUG=True
@@ -62,6 +62,20 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    networks:
+      - waf_network
+
+  nginx:
+    build: ./nginx
+    container_name: waf_nginx
+    ports:
+      - "80:80"
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/mediafiles
+    depends_on:
+      web:
+        condition: service_healthy
     networks:
       - waf_network
 
