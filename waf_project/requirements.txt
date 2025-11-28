@@ -36,3 +36,9 @@ sentry-sdk==2.19.2
 # Testing (development only)
 pytest==9.0.1
 pytest-django==4.9.0
+
+# WAF Machine Learning
+scikit-learn>=1.5.0
+numpy>=1.26.0
+pandas>=2.2.0
+joblib>=1.4.0
