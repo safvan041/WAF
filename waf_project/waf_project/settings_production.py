@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "waf_project.waf_core",
     "waf_project.waf_engine",
+    "waf_project.waf_ml",
     "rest_framework",
 ]
 
