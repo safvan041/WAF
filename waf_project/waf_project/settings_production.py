@@ -253,3 +253,13 @@ if os.environ.get('SENTRY_DSN'):
         send_default_pii=False,
         environment=os.environ.get('ENVIRONMENT', 'production'),
     )
+
+# WAF Machine Learning Configuration
+WAF_ML_ENABLED = os.environ.get('WAF_ML_ENABLED', 'True').lower() == 'true'
+WAF_ML_ANOMALY_THRESHOLD = float(os.environ.get('WAF_ML_ANOMALY_THRESHOLD', '0.8'))
+WAF_ML_AUTO_APPROVE_THRESHOLD = float(os.environ.get('WAF_ML_AUTO_APPROVE_THRESHOLD', '0.95'))
+WAF_ML_TRAINING_WINDOW_DAYS = int(os.environ.get('WAF_ML_TRAINING_WINDOW_DAYS', '7'))
+WAF_ML_MIN_SAMPLES_FOR_TRAINING = int(os.environ.get('WAF_ML_MIN_SAMPLES_FOR_TRAINING', '100'))
+WAF_ML_FEATURE_EXTRACTION_ENABLED = os.environ.get('WAF_ML_FEATURE_EXTRACTION_ENABLED', 'True').lower() == 'true'
+WAF_ML_PATTERN_AGGREGATION_MINUTES = int(os.environ.get('WAF_ML_PATTERN_AGGREGATION_MINUTES', '60'))
+WAF_ML_ENABLE_FALLBACK_RULES = os.environ.get('WAF_ML_ENABLE_FALLBACK_RULES', 'False').lower() == 'true'

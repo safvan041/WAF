@@ -1,0 +1,14 @@
+# WAF Machine Learning Requirements
+# Install with: pip install -r requirements_ml.txt
+
+# Core ML libraries (Python 3.13 compatible versions)
+scikit-learn>=1.5.0
+numpy>=1.26.0
+pandas>=2.2.0
+joblib>=1.4.0
+
+# Optional: For background task processing
+# Uncomment if you want to use Celery for async ML training
+# celery==5.3.4
+# redis==5.0.1
+# django-celery-beat==2.5.0

@@ -72,6 +72,9 @@ waf_project/
 ## Key Features
 
 - ✅ Multi-tenant WAF system
+- ✅ ML-based Anomaly Detection
+- ✅ Adaptive Rule Generation
+- ✅ False Positive Feedback Loop
 - ✅ Docker containerization
 - ✅ AWS ECS Fargate deployment
 - ✅ PostgreSQL database with RDS
@@ -81,6 +84,26 @@ waf_project/
 - ✅ Health check endpoints
 - ✅ Automated deployment scripts
 - ✅ Infrastructure as Code
+
+## API Documentation
+
+### Machine Learning APIs
+Authentication: Token-based (Header: `Authorization: Token <your_token>`)
+
+#### 1. False Positive Feedback
+- **Endpoint**: `POST /api/ml/feedback/`
+- **Body**:
+  ```json
+  {
+      "security_event": "UUID",
+      "is_false_positive": true,
+      "user_comment": "Reason"
+  }
+  ```
+
+#### 2. ML Insights
+- **Endpoint**: `GET /api/ml/insights/`
+- **Response**: Returns stats on adaptive rules, anomalies, and feedback.
 
 ## Requirements
 

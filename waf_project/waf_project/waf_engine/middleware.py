@@ -4,7 +4,7 @@ import re
 import ipaddress
 import json
 import logging
-import geoip2.database
+from django.conf import settings
 from django.contrib.gis.geoip2 import GeoIP2, GeoIP2Exception
 from django.utils.deprecation import MiddlewareMixin
 from django.http import HttpResponseForbidden
@@ -18,6 +18,8 @@ from waf_project.waf_core.models import (
     GeographicRule,
     WAFConfiguration,
 )
+from waf_project.waf_ml.ml_engine import FeatureExtractor, AnomalyDetector
+from waf_project.waf_ml.models import MLModel, AnomalyScore
 
 logger = logging.getLogger('waf_engine')
 
@@ -32,38 +34,47 @@ class WAFMiddleware(MiddlewareMixin):
         if request.path.startswith(('/admin/', '/static/')):
             return self.get_response(request)
 
-        print(f"DEBUG: WAF processing request: {request.get_full_path()}")
-        print(f"DEBUG: Request host: {request.get_host()}")
+        if settings.DEBUG:
+            print(f"DEBUG: WAF processing request: {request.get_full_path()}")
+            print(f"DEBUG: Request host: {request.get_host()}")
 
         # Tenant should already be set by TenantMiddleware
         if not hasattr(request, 'tenant'):
-            print("DEBUG: No tenant attribute found on request")
+            if settings.DEBUG:
+                print("DEBUG: No tenant attribute found on request")
             return self.get_response(request)
             
         if not request.tenant:
-            print("DEBUG: request.tenant is None")
+            if settings.DEBUG:
+                print("DEBUG: request.tenant is None")
             return self.get_response(request)
             
         if not request.tenant.is_active:
-            print(f"DEBUG: Tenant {request.tenant.name} is not active")
+            if settings.DEBUG:
+                print(f"DEBUG: Tenant {request.tenant.name} is not active")
             return self.get_response(request)
 
-        print(f"DEBUG: Processing WAF for tenant: {request.tenant.name}")
+        if settings.DEBUG:
+            print(f"DEBUG: Processing WAF for tenant: {request.tenant.name}")
         
         # Load tenant-specific WAF configuration and rules
         try:
             waf_config = WAFConfiguration.objects.get(tenant=request.tenant)
-            print(f"DEBUG: Found WAF config, enabled: {waf_config.is_enabled}")
+            if settings.DEBUG:
+                print(f"DEBUG: Found WAF config, enabled: {waf_config.is_enabled}")
         except WAFConfiguration.DoesNotExist:
-            print("DEBUG: No WAF configuration found for tenant")
+            if settings.DEBUG:
+                print("DEBUG: No WAF configuration found for tenant")
             return self.get_response(request)
 
         if not waf_config.is_enabled:
-            print("DEBUG: WAF is disabled for this tenant")
+            if settings.DEBUG:
+                print("DEBUG: WAF is disabled for this tenant")
             return self.get_response(request)
 
         client_ip = self._get_client_ip(request)
-        print(f"DEBUG: Client IP: {client_ip}")
+        if settings.DEBUG:
+            print(f"DEBUG: Client IP: {client_ip}")
         
         # Check IP against whitelists and blacklists
         if self._is_whitelisted(request.tenant, client_ip):
@@ -84,7 +95,8 @@ class WAFMiddleware(MiddlewareMixin):
             tenant=request.tenant, is_enabled=True
         ).select_related('rule')
 
-        print(f"DEBUG: Found {tenant_rules.count()} active rules for tenant")
+        if settings.DEBUG:
+            print(f"DEBUG: Found {tenant_rules.count()} active rules for tenant")
 
         for config in tenant_rules:
             rule = config.rule
@@ -92,23 +104,28 @@ class WAFMiddleware(MiddlewareMixin):
 
             # 🚨 Skip geo rules here, since already handled above
             if rule.rule_type == "geo_blocking":
-                print(f"DEBUG: Skipping geo rule '{rule.name}' (already processed)")
                 continue
 
-            print(f"DEBUG: Checking rule '{rule.name}' with pattern '{rule.pattern}'")
-            print(f"DEBUG: Rule type: {rule.rule_type}, Action: {effective_action}")
+            if settings.DEBUG:
+                print(f"DEBUG: Checking rule '{rule.name}' with pattern '{rule.pattern}'")
 
             if self._match_pattern(request, rule):
-                print(f"DEBUG: RULE MATCHED! Rule: {rule.name}")
+                logger.info(f"WAF Rule Matched: {rule.name} for tenant {request.tenant.name}")
                 self._log_event(request.tenant, rule, rule.rule_type, effective_action, 'medium', client_ip, request)
                 if effective_action == 'block':
-                    print("DEBUG: Blocking request due to rule match")
                     return HttpResponseForbidden("<h1>403 Forbidden</h1><p>Your request has been blocked by the WAF.</p>")
                 else:
-                    print(f"DEBUG: Rule matched but action is '{effective_action}', allowing request")
+                    if settings.DEBUG:
+                        print(f"DEBUG: Rule matched but action is '{effective_action}', allowing request")
             else:
-                print(f"DEBUG: Rule '{rule.name}' did not match")
-        print("DEBUG: No rules matched, allowing request")
+                if settings.DEBUG:
+                    print(f"DEBUG: Rule '{rule.name}' did not match")
+        
+        # Check ML-based anomaly detection
+        ml_result = self._check_ml_anomaly(request, request.tenant, client_ip)
+        if ml_result and ml_result.get("is_blocked"):
+            return ml_result.get("response")
+        
         return self.get_response(request)
 
 
@@ -261,3 +278,116 @@ class WAFMiddleware(MiddlewareMixin):
         except Exception as e:
             logger.exception(f"Unexpected error in GeoIP lookup for {ip_address}")
             return None
+        if not geo_rules.exists():
+            return False
+
+        country_code = self._get_country_code_from_ip(ip_address)
+        print(f"DEBUG: Resolved country code for {ip_address}: {country_code}")
+
+        blocked_countries = [rule.country_code for rule in geo_rules]
+        is_blocked = country_code in blocked_countries
+
+        print(f"DEBUG: Blocked countries for tenant: {blocked_countries}")
+        print(f"DEBUG: Is {country_code} blocked? {is_blocked}")
+
+        return is_blocked
+
+    def _get_country_code_from_ip(self, ip_address):
+        try:
+            g = GeoIP2()
+            result = g.country(ip_address)
+            country_code = result.get("country_code")
+            logger.debug(f"Resolved country for {ip_address}: {result}")
+            return country_code
+        except GeoIP2Exception as e:
+            logger.error(f"GeoIP lookup failed for {ip_address}: {e}")
+            return None
+        except Exception:
+            logger.exception(
+                f"Unexpected error in GeoIP lookup for {ip_address}"
+            )
+            return None
+
+    def _check_ml_anomaly(self, request, tenant, client_ip):
+        """
+        Run ML-based anomaly detection for this request.
+
+        - Always extracts features and logs an AnomalyScore row.
+        - If an active model exists, uses it to compute anomaly_score + is_anomaly.
+        - Optionally blocks if score exceeds threshold.
+        """
+        
+        # If ML globally disabled in settings, do nothing
+        if not getattr(settings, "WAF_ML_ENABLED", False):
+            return None
+
+        if not getattr(settings, "WAF_ML_FEATURE_EXTRACTION_ENABLED", True):
+            return None
+
+        try:
+            # 1) Extract features + signature
+            features = FeatureExtractor.extract_features(request)
+            signature = FeatureExtractor.create_request_signature(request)
+        except Exception as e:
+            logger.exception(f"ML feature extraction failed: {e}")
+            return None
+
+        anomaly_score = 0.0
+        is_anomaly = False
+
+        # 2) Try to load active anomaly model for this tenant
+        model_obj = MLModel.objects.filter(
+            tenant=tenant,
+            model_type="anomaly_detector",
+            is_active=True,
+        ).order_by("-model_version").first()
+
+        if model_obj and model_obj.model_data:
+            try:
+                detector = AnomalyDetector.deserialize(model_obj.model_data)
+                anomaly_score, is_anomaly = detector.predict(features)
+                logger.debug(
+                    "ML anomaly prediction: score=%.3f, is_anomaly=%s",
+                    anomaly_score,
+                    is_anomaly,
+                )
+            except Exception as e:
+                logger.exception(f"Failed to run ML prediction: {e}")
+                # fall back to "no anomaly"
+                anomaly_score = 0.0
+                is_anomaly = False
+        else:
+            # No trained model yet – just collect baseline data
+            logger.debug("No active ML model for tenant, logging baseline features only")
+
+        # 3) Decide whether to block based on score
+        threshold = getattr(settings, "WAF_ML_ANOMALY_THRESHOLD", 0.7)
+        should_block = bool(is_anomaly and anomaly_score >= threshold)
+
+        # 4) Persist AnomalyScore row so training can use it later
+        try:
+            AnomalyScore.objects.create(
+                tenant=tenant,
+                request_signature=signature,
+                source_ip=client_ip,
+                request_path=request.path,
+                request_method=request.method,
+                anomaly_score=anomaly_score,
+                is_anomaly=is_anomaly,
+                features=features,
+                was_blocked=should_block,
+                blocking_rule=None,
+            )
+        except Exception as e:
+            logger.exception(f"Failed to log AnomalyScore: {e}")
+
+        # 5) If ML says block, return a blocking response
+        if should_block:
+            resp = HttpResponseForbidden(
+                "<h1>403 Forbidden</h1><p>Your request was flagged as anomalous by ML.</p>"
+            )
+            return {"is_blocked": True, "response": resp}
+
+        # Otherwise, let WAF continue checking rules
+        return {"is_blocked": False}
+

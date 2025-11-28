@@ -25,6 +25,7 @@ urlpatterns = [
     path('health/', health_check, name='health_check'),
     path('', include('waf_project.waf_core.urls')),
     path('api/', include('waf_project.waf_engine.urls')),
+    path('api/ml/', include('waf_project.waf_ml.urls')),
 ]
 
 
