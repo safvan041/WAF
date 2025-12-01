@@ -58,8 +58,8 @@ services:
       - SECRET_KEY=django-insecure-u9#x8!v7@y6$z5%w4^t3&s2*r1(q0)p
       - DATABASE_URL=postgresql://waf_user:waf_password_dev@db:5432/waf_db
       - REDIS_URL=redis://redis:6379/0
-      - ALLOWED_HOSTS=localhost,127.0.0.1,demo.waf-app.site
-      - CSRF_TRUSTED_ORIGINS=http://demo.waf-app.site,https://demo.waf-app.site,https://localhost
+      - ALLOWED_HOSTS=localhost,127.0.0.1,demo.waf-app.site,.waf-app.site
+      - CSRF_TRUSTED_ORIGINS=http://demo.waf-app.site,https://demo.waf-app.site,https://localhost,https://*.waf-app.site
       - LOG_LEVEL=INFO
       - SECURE_SSL_REDIRECT=True
       - CREATE_SUPERUSER=true
