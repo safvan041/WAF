@@ -25,7 +25,7 @@ if raw_hosts:
     ALLOWED_HOSTS = [h.strip() for h in raw_hosts.split(",") if h.strip()]
 else:
     # dev-safe default
-    ALLOWED_HOSTS = ["*"] if DEBUG else []
+    ALLOWED_HOSTS = ["*"] if DEBUG else ["waf-app.site", ".waf-app.site"]
 
 
 # Application definition
@@ -44,16 +44,25 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware",  # Serve static files
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+
+    # Tenant first, so WAF knows who this request belongs to
     "waf_project.waf_engine.tenant_middleware.TenantMiddleware",
+
+    # Sessions (for dashboard, auth, etc.)
     "django.contrib.sessions.middleware.SessionMiddleware",
+
     "django.middleware.common.CommonMiddleware",
+
+    # Run WAF early so it can block before CSRF/Auth
+    "waf_project.waf_engine.middleware.WAFMiddleware",
+
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "waf_project.waf_engine.middleware.WAFMiddleware"
 ]
+
 
 ROOT_URLCONF = "waf_project.urls"
 

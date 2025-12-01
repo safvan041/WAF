@@ -27,6 +27,23 @@ class Tenant(models.Model):
     additional_domains = models.TextField(blank=True,
                                          help_text="Additional domains (one per line)")
 
+    # NEW: actual backend origin (where you reverse proxy to)
+    origin_url = models.URLField(
+        max_length=500,
+        null=True,
+        blank=True,
+        help_text="Origin backend URL for this tenant (e.g., https://app.tenant.com)"
+    )
+
+    # NEW: hostname under your WAF domain (what DNS/CNAME will point to)
+    waf_host = models.CharField(
+        max_length=255,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="Subdomain on the WAF (e.g., tenant1.waf-app.site)"
+    )
+
     # Contact information
     contact_email = models.EmailField()
     contact_name = models.CharField(max_length=100)

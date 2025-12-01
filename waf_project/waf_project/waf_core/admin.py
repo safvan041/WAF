@@ -15,7 +15,34 @@ from .models import (
 )
 
 # Register all models in the admin panel
-admin.site.register(Tenant)
+@admin.register(Tenant)
+class TenantAdmin(admin.ModelAdmin):
+    list_display = ('name', 'domain', 'origin_url', 'waf_host', 'status', 'plan', 'is_active', 'created_at')
+    list_filter = ('status', 'plan', 'is_active')
+    search_fields = ('name', 'domain', 'waf_host', 'contact_email')
+    
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('name', 'domain', 'additional_domains')
+        }),
+        ('Reverse Proxy Configuration', {
+            'fields': ('origin_url', 'waf_host'),
+            'description': 'Configure where to forward allowed traffic and the WAF subdomain'
+        }),
+        ('Contact Information', {
+            'fields': ('contact_email', 'contact_name', 'contact_phone')
+        }),
+        ('Service Details', {
+            'fields': ('status', 'plan', 'is_active')
+        }),
+        ('Advanced', {
+            'fields': ('api_key',),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    readonly_fields = ('created_at', 'updated_at')
+
 
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):

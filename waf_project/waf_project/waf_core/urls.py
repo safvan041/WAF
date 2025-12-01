@@ -17,4 +17,8 @@ urlpatterns = [
     path('register/', views.register, name='register'),
     path('login/', auth_views.LoginView.as_view(template_name='waf_core/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
+    
+    # Tenant detail
+    path('tenant/', views.tenant_detail_view, name='tenant_detail'),
+    path('tenant/<uuid:tenant_id>/', views.tenant_detail_view, name='tenant_detail_admin'),
 ]

@@ -6,68 +6,85 @@ import logging
 
 logger = logging.getLogger('waf_engine')
 
+
 class TenantMiddleware:
+    """
+    Resolve the current Tenant based on the incoming Host header.
+
+    Entry hosts that can map to a tenant:
+      - tenant.waf-app.site         (Tenant.waf_host)
+      - tenant-domain.com           (Tenant.domain)
+      - any additional_domains      (Tenant.additional_domains via get_all_domains())
+
+    This middleware MUST run before WAFMiddleware in MIDDLEWARE.
+    """
+
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        # First, try to get the host from the X-Forwarded-Host header
-        host = request.META.get('HTTP_X_FORWARDED_HOST')
-        if not host:
-            host = request.get_host()
-            
-        logger.debug(f"Tenant lookup for host: '{host}'")
-        
-        tenant = None
-        
-        # 1. Try exact match on primary domain
-        try:
-            tenant = Tenant.objects.get(domain=host)
-            logger.debug(f"Found tenant by exact match: {tenant.name}")
-        except Tenant.DoesNotExist:
-            pass
-            
-        # 2. Try match on additional_domains
-        if not tenant:
-            # We use Q objects to search if the host is IN the additional_domains text field
-            # This is a bit loose (substring match), but we can refine it
-            # Better approach: Iterate or use a more specific query if possible. 
-            # Given the model structure, we'll fetch all tenants and check python-side for safety/accuracy 
-            # or use a regex filter if DB supports it. For now, let's try a safe python-side check 
-            # for robustness, assuming low tenant count. If high count, we need a better model structure.
-            # Optimization: Filter potential candidates first.
-            
-            potential_tenants = Tenant.objects.filter(additional_domains__icontains=host)
-            for t in potential_tenants:
-                domains = t.get_all_domains()
-                if host in domains:
-                    tenant = t
-                    logger.debug(f"Found tenant by additional_domain match: {tenant.name}")
-                    break
+        # Prefer X-Forwarded-Host if you are behind a reverse proxy (Nginx)
+        host_header = request.META.get('HTTP_X_FORWARDED_HOST') or request.get_host()
 
-        # 3. Try without port if present
-        if not tenant and ':' in host:
-            domain_only = host.split(':')[0]
-            logger.debug(f"Retrying lookup with domain only: '{domain_only}'")
-            
-            try:
-                tenant = Tenant.objects.get(domain=domain_only)
-                logger.debug(f"Found tenant by domain-only match: {tenant.name}")
-            except Tenant.DoesNotExist:
-                # Check additional domains for domain_only
-                potential_tenants = Tenant.objects.filter(additional_domains__icontains=domain_only)
-                for t in potential_tenants:
-                    domains = t.get_all_domains()
-                    if domain_only in domains:
-                        tenant = t
-                        logger.debug(f"Found tenant by additional_domain (no port) match: {tenant.name}")
-                        break
+        # X-Forwarded-Host can contain multiple values -> take the first
+        if ',' in host_header:
+            host_header = host_header.split(',')[0].strip()
+
+        host_header = host_header.strip()
+
+        # Strip port if present (e.g. "tenant.waf-app.site:443")
+        if ':' in host_header:
+            host_no_port = host_header.split(':', 1)[0]
+        else:
+            host_no_port = host_header
+
+        logger.debug(
+            f"Tenant lookup - raw host: '{host_header}', normalized host: '{host_no_port}'"
+        )
+
+        tenant = None
+
+        # 1) Try exact match on waf_host OR primary domain (normalized, no port)
+        try:
+            tenant = Tenant.objects.get(
+                Q(waf_host=host_no_port) | Q(domain=host_no_port)
+            )
+            logger.debug(
+                f"Found tenant by waf_host/domain match: {tenant.name} "
+                f"(waf_host={tenant.waf_host}, domain={tenant.domain})"
+            )
+        except Tenant.DoesNotExist:
+            tenant = None
+        except Tenant.MultipleObjectsReturned:
+            # Shouldn't happen if waf_host/domain are unique, but be defensive
+            tenant = (
+                Tenant.objects.filter(
+                    Q(waf_host=host_no_port) | Q(domain=host_no_port)
+                )
+                .order_by('created_at')
+                .first()
+            )
+            logger.warning(
+                f"Multiple tenants matched host '{host_no_port}', picked first: {tenant.name}"
+            )
+
+        # 2) If still not found, try additional_domains (Python-side check via get_all_domains)
+        if not tenant:
+            candidates = Tenant.objects.filter(additional_domains__icontains=host_no_port)
+            for t in candidates:
+                if host_no_port in t.get_all_domains():
+                    tenant = t
+                    logger.debug(
+                        f"Found tenant by additional_domains match: {tenant.name}"
+                    )
+                    break
 
         if tenant:
             request.tenant = tenant
         else:
-            logger.warning(f"No tenant found for host '{host}'")
+            logger.warning(
+                f"No tenant resolved for host '{host_header}' (normalized '{host_no_port}')"
+            )
             request.tenant = None
-        
-        response = self.get_response(request)
-        return response
+
+        return self.get_response(request)

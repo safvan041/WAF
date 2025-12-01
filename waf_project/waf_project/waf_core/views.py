@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from .forms import TenantRegistrationForm
 from django.contrib.auth import login
 from django.db.models import Count, Q
@@ -10,6 +10,7 @@ from django.http import HttpResponse
 from .models import User
 import json
 from django.core.paginator import Paginator
+
 
 def home_view(request):
     return HttpResponse("Welcome to the WAF protected homepage!")
@@ -25,10 +26,10 @@ def dashboard_view(request):
     user = request.user
     now = timezone.now()
     last_24h = now - timedelta(hours=24)
-    
+
     # Base query for events
     events = SecurityEvent.objects.filter(timestamp__gte=last_24h).select_related('rule')
-    
+
     tenant = None
     if not user.is_superuser:
         if user.tenant:
@@ -37,21 +38,21 @@ def dashboard_view(request):
         else:
             # Fallback for users without tenant
             events = SecurityEvent.objects.none()
-    
+
     # Stats
     total_events = events.count()
     blocked_events = events.filter(action_taken='block').count()
-    
+
     # Top IPs
     top_ips = events.values('source_ip').annotate(count=Count('id')).order_by('-count')[:10]
     top_ips_list = list(top_ips)
     top_ips_json = json.dumps(top_ips_list)
-    
+
     # Pagination
     paginator = Paginator(events.order_by('-timestamp'), 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-    
+
     context = {
         'tenant': tenant,
         'total_events': total_events,
@@ -60,18 +61,41 @@ def dashboard_view(request):
         'recent_events': page_obj,
         'superuser_email': user.email if user.is_superuser else None,
     }
-    
+
     return render(request, 'waf_core/dashboard.html', context)
 
+
 def register(request):
+    """
+    Onboarding view: creates Tenant + initial User.
+
+    EXPECTATION:
+    - TenantRegistrationForm must expose origin_url and waf_host.
+    - We then ensure those are saved onto the Tenant instance.
+    """
     # If the user is already authenticated, redirect them to the dashboard
     if request.user.is_authenticated:
         return redirect('dashboard')
-    
+
     if request.method == 'POST':
         form = TenantRegistrationForm(request.POST)
         if form.is_valid():
+            # form.save() should create the user (and tenant)
             user = form.save()
+
+            # Make sure origin_url and waf_host are set on the tenant
+            tenant = getattr(user, 'tenant', None)
+            if tenant is not None:
+                origin_url = form.cleaned_data.get('origin_url')
+                waf_host = form.cleaned_data.get('waf_host')
+
+                if origin_url:
+                    tenant.origin_url = origin_url
+                if waf_host:
+                    tenant.waf_host = waf_host
+
+                tenant.save()
+
             login(request, user)
             from django.contrib import messages
             messages.success(request, f"Welcome, {user.username}! Your account has been successfully created.")
@@ -80,5 +104,57 @@ def register(request):
         form = TenantRegistrationForm()
     return render(request, 'waf_core/register.html', {'form': form})
 
+
+@login_required
+def tenant_detail_view(request, tenant_id=None):
+    """
+    Tenant detail page:
+    - Superuser can view any tenant by ID.
+    - Normal user only sees their own tenant.
+    Shows origin_url and waf_host so you can verify routing.
+    """
+    user = request.user
+
+    if user.is_superuser and tenant_id is not None:
+        tenant = get_object_or_404(Tenant, id=tenant_id)
+    else:
+        # Non-superuser must be bound to a tenant
+        if not getattr(user, 'tenant', None):
+            return HttpResponse("No tenant associated with this user.", status=400)
+        tenant = user.tenant
+
+    context = {
+        'tenant': tenant,
+        'origin_url': tenant.origin_url,
+        'waf_host': tenant.waf_host,
+    }
+    return render(request, 'waf_core/tenant_detail.html', context)
+
+
 def rules_list(request):
     return render(request, 'waf_core/rules_list.html')
+
+
+@login_required
+def tenant_detail_view(request, tenant_id=None):
+    """
+    Tenant detail page:
+    - Superuser can view any tenant by ID.
+    - Normal user only sees their own tenant.
+    Shows origin_url and waf_host so you can verify routing.
+    """
+    user = request.user
+
+    if user.is_superuser and tenant_id is not None:
+        tenant = get_object_or_404(Tenant, id=tenant_id)
+    else:
+        if not getattr(user, "tenant", None):
+            return HttpResponse("No tenant associated with this user.", status=400)
+        tenant = user.tenant
+
+    context = {
+        "tenant": tenant,
+        "origin_url": tenant.origin_url,
+        "waf_host": tenant.waf_host,
+    }
+    return render(request, "waf_core/tenant_detail.html", context)

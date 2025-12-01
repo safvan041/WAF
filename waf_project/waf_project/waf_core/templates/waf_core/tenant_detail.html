@@ -1,0 +1,143 @@
+{% extends 'waf_core/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="glass-card text-center py-4">
+            <h1 class="display-5 fw-bold text-gradient">⚙️ Tenant Configuration</h1>
+            <p class="lead text-muted mb-0">{{ tenant.name }}</p>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="glass-card h-100">
+            <h5 class="mb-3" style="color: #60a5fa;"><i class="fas fa-info-circle me-2"></i>Basic Information</h5>
+            <div class="mb-3">
+                <p class="small mb-1" style="color: #94a3b8;">Organization Name</p>
+                <p class="fw-bold text-white">{{ tenant.name }}</p>
+            </div>
+            <div class="mb-3">
+                <p class="small mb-1" style="color: #94a3b8;">Primary Domain</p>
+                <p class="fw-bold text-white font-monospace">{{ tenant.domain }}</p>
+            </div>
+            <div class="mb-3">
+                <p class="small mb-1" style="color: #94a3b8;">Status</p>
+                <p>
+                    <span class="badge {% if tenant.status == 'active' %}bg-success{% else %}bg-warning{% endif %}">
+                        {{ tenant.get_status_display }}
+                    </span>
+                </p>
+            </div>
+            <div class="mb-3">
+                <p class="small mb-1" style="color: #94a3b8;">Plan</p>
+                <p class="fw-bold text-white">{{ tenant.get_plan_display }}</p>
+            </div>
+            <div class="mb-3">
+                <p class="small mb-1" style="color: #94a3b8;">Active</p>
+                <p>
+                    {% if tenant.is_active %}
+                    <span class="badge bg-success">Yes</span>
+                    {% else %}
+                    <span class="badge bg-danger">No</span>
+                    {% endif %}
+                </p>
+            </div>
+            <div>
+                <p class="small mb-1" style="color: #94a3b8;">Created</p>
+                <p class="text-white">{{ tenant.created_at|date:"M d, Y" }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="glass-card h-100">
+            <h5 class="mb-3" style="color: #60a5fa;"><i class="fas fa-exchange-alt me-2"></i>Reverse Proxy Configuration
+            </h5>
+            <div class="mb-4">
+                <p class="small mb-2" style="color: #94a3b8;">Origin Server URL</p>
+                {% if tenant.origin_url %}
+                <div class="p-3 rounded"
+                    style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3);">
+                    <p class="font-monospace mb-1" style="color: #60a5fa;">{{ tenant.origin_url }}</p>
+                    <small style="color: #94a3b8;">Traffic will be forwarded here</small>
+                </div>
+                {% else %}
+                <div class="p-3 rounded"
+                    style="background: rgba(148, 163, 184, 0.1); border: 1px solid rgba(148, 163, 184, 0.3);">
+                    <p class="mb-1" style="color: #94a3b8;">Not configured</p>
+                    <small style="color: #94a3b8;">Set this to enable reverse proxy</small>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="mb-4">
+                <p class="small mb-2" style="color: #94a3b8;">WAF Subdomain</p>
+                {% if tenant.waf_host %}
+                <div class="p-3 rounded"
+                    style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3);">
+                    <p class="font-monospace mb-1" style="color: #10b981;">{{ tenant.waf_host }}</p>
+                    <small style="color: #94a3b8;">Point your DNS CNAME here</small>
+                </div>
+                {% else %}
+                <div class="p-3 rounded"
+                    style="background: rgba(148, 163, 184, 0.1); border: 1px solid rgba(148, 163, 184, 0.3);">
+                    <p class="mb-1" style="color: #94a3b8;">Not configured</p>
+                    <small style="color: #94a3b8;">Your WAF entry point</small>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if tenant.origin_url and tenant.waf_host %}
+            <div class="p-3 rounded"
+                style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3);">
+                <h6 class="mb-2" style="color: #60a5fa;"><i class="fas fa-info-circle me-1"></i> DNS Setup</h6>
+                <p class="small mb-0" style="color: #cbd5e1;">
+                    Create a CNAME record for <code style="color: #60a5fa;">{{ tenant.domain }}</code>
+                    pointing to <code style="color: #10b981;">{{ tenant.waf_host }}</code>
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="glass-card">
+            <h5 class="mb-3" style="color: #60a5fa;"><i class="fas fa-address-card me-2"></i>Contact Information</h5>
+            <div class="row">
+                <div class="col-md-4">
+                    <p class="small mb-1" style="color: #94a3b8;">Contact Name</p>
+                    <p class="fw-bold text-white">{{ tenant.contact_name }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p class="small mb-1" style="color: #94a3b8;">Contact Email</p>
+                    <p class="fw-bold text-white">{{ tenant.contact_email }}</p>
+                </div>
+                {% if tenant.contact_phone %}
+                <div class="col-md-4">
+                    <p class="small mb-1" style="color: #94a3b8;">Contact Phone</p>
+                    <p class="fw-bold text-white">{{ tenant.contact_phone }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-light me-2">
+            <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+        </a>
+        {% if is_superuser %}
+        <a href="/admin/waf_core/tenant/{{ tenant.id }}/change/" class="btn btn-primary">
+            <i class="fas fa-edit me-2"></i>Edit Tenant
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

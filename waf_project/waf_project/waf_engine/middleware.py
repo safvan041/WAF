@@ -121,6 +121,17 @@ class WAFMiddleware(MiddlewareMixin):
         if ml_result and ml_result.get("is_blocked"):
             return ml_result.get("response")
         
+        # ✅ ALL WAF CHECKS PASSED - Now decide: proxy or serve Django content
+        
+        # If tenant has origin_url configured, proxy the request
+        if request.tenant.origin_url:
+            # Skip proxying for Django admin, static files, and WAF dashboard
+            if not request.path.startswith(('/admin/', '/static/', '/dashboard/', '/tenant/', '/login', '/logout', '/register')):
+                logger.info(f"Proxying request to origin: {request.tenant.origin_url}")
+                from .proxy import proxy_request
+                return proxy_request(request, request.tenant.origin_url)
+        
+        # Otherwise, serve Django content normally (admin, dashboard, etc.)
         return self.get_response(request)
 
 
