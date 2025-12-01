@@ -40,36 +40,31 @@ class WAFMiddleware(MiddlewareMixin):
 
         # Tenant should already be set by TenantMiddleware
         if not hasattr(request, 'tenant'):
-            if settings.DEBUG:
-                print("DEBUG: No tenant attribute found on request")
+            logger.warning("WAF Skipped: No tenant attribute found on request")
             return self.get_response(request)
             
         if not request.tenant:
-            if settings.DEBUG:
-                print("DEBUG: request.tenant is None")
+            logger.warning("WAF Skipped: request.tenant is None (Tenant resolution failed)")
             return self.get_response(request)
             
         if not request.tenant.is_active:
-            if settings.DEBUG:
-                print(f"DEBUG: Tenant {request.tenant.name} is not active")
+            logger.warning(f"WAF Skipped: Tenant {request.tenant.name} is not active")
             return self.get_response(request)
 
         if settings.DEBUG:
-            print(f"DEBUG: Processing WAF for tenant: {request.tenant.name}")
+            logger.debug(f"Processing WAF for tenant: {request.tenant.name}")
         
         # Load tenant-specific WAF configuration and rules
         try:
             waf_config = WAFConfiguration.objects.get(tenant=request.tenant)
             if settings.DEBUG:
-                print(f"DEBUG: Found WAF config, enabled: {waf_config.is_enabled}")
+                logger.debug(f"Found WAF config, enabled: {waf_config.is_enabled}")
         except WAFConfiguration.DoesNotExist:
-            if settings.DEBUG:
-                print("DEBUG: No WAF configuration found for tenant")
+            logger.warning(f"WAF Skipped: No WAF configuration found for tenant {request.tenant.name}")
             return self.get_response(request)
 
         if not waf_config.is_enabled:
-            if settings.DEBUG:
-                print("DEBUG: WAF is disabled for this tenant")
+            logger.warning(f"WAF Disabled: WAF is explicitly disabled for tenant {request.tenant.name}")
             return self.get_response(request)
 
         client_ip = self._get_client_ip(request)
