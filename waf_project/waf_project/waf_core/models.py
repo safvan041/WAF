@@ -61,6 +61,15 @@ class Tenant(models.Model):
     api_key = models.CharField(max_length=64, unique=True, blank=True)
     is_active = models.BooleanField(default=True)
 
+    # Domain Verification
+    verification_token = models.UUIDField(default=uuid.uuid4, editable=False)
+    domain_verified = models.BooleanField(default=False)
+    verification_method = models.CharField(
+        max_length=20,
+        choices=[('dns', 'DNS TXT Record'), ('file', 'File Upload')],
+        default='dns'
+    )
+
     class Meta:
         ordering = ['-created_at']
         verbose_name = "Tenant"

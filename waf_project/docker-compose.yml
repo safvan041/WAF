@@ -55,7 +55,7 @@ services:
     environment:
       - DJANGO_SETTINGS_MODULE=waf_project.settings_production
       - DEBUG=False
-      - SECRET_KEY=django-insecure-u9#x8!v7@y6$z5%w4^t3&s2*r1(q0)p
+      - SECRET_KEY=django-insecure-u9#x8!v7@y6$$z5%w4^t3&s2*r1(q0)p
       - DATABASE_URL=postgresql://waf_user:waf_password_dev@db:5432/waf_db
       - REDIS_URL=redis://redis:6379/0
       - ALLOWED_HOSTS=localhost,127.0.0.1,demo.waf-app.site,.waf-app.site
@@ -105,11 +105,14 @@ services:
     command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
 
   certbot:
-    image: certbot/certbot:latest
+    image: certbot/dns-route53:latest
     container_name: waf_certbot
     volumes:
       - certbot-etc:/etc/letsencrypt
       - certbot-www:/var/www/certbot
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
 
 volumes:

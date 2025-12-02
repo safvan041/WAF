@@ -158,3 +158,31 @@ def tenant_detail_view(request, tenant_id=None):
         "waf_host": tenant.waf_host,
     }
     return render(request, "waf_core/tenant_detail.html", context)
+
+
+@login_required
+def verify_domain(request, tenant_id):
+    """
+    Trigger DNS verification for a tenant.
+    """
+    tenant = get_object_or_404(Tenant, id=tenant_id)
+    
+    # Ensure user has permission
+    if not request.user.is_superuser and request.user.tenant != tenant:
+        return HttpResponse("Unauthorized", status=403)
+        
+    from waf_project.waf_engine.verification import DomainVerifier
+    from django.contrib import messages
+    
+    if DomainVerifier.verify_dns_record(tenant.domain, str(tenant.verification_token)):
+        tenant.domain_verified = True
+        tenant.save()
+        messages.success(request, f"Domain {tenant.domain} verified successfully!")
+    else:
+        messages.error(request, f"Verification failed. Could not find TXT record for {tenant.domain}.")
+        
+    # If user is superuser viewing specific tenant, keep them there.
+    # Otherwise redirect to generic tenant detail.
+    if request.user.is_superuser:
+         return redirect('tenant_detail_admin', tenant_id=tenant.id)
+    return redirect('tenant_detail')

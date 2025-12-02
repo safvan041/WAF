@@ -21,4 +21,5 @@ urlpatterns = [
     # Tenant detail
     path('tenant/', views.tenant_detail_view, name='tenant_detail'),
     path('tenant/<uuid:tenant_id>/', views.tenant_detail_view, name='tenant_detail_admin'),
+    path('tenant/<uuid:tenant_id>/verify/', views.verify_domain, name='verify_domain'),
 ]
