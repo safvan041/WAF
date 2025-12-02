@@ -85,6 +85,17 @@ class WAFMiddleware(MiddlewareMixin):
                 self._log_event(request.tenant, rule, 'geo_blocked', rule.action, rule.severity, client_ip, request)
                 return HttpResponseForbidden("<h1>403 Forbidden</h1><p>Access from your country is blocked.</p>")
 
+        # Skip WAF rule checks for dashboard, admin, and authentication paths
+        excluded_paths = ('/admin/', '/static/', '/media/', '/dashboard/', '/tenant/', '/login', '/logout', '/register', '/health/')
+        if request.path.startswith(excluded_paths):
+            if settings.DEBUG:
+                logger.debug(f"Skipping WAF checks for excluded path: {request.path}")
+            # Still allow the request to proceed (either proxy or serve Django)
+            if request.tenant.origin_url and not request.path.startswith(excluded_paths):
+                logger.info(f"Proxying request to origin: {request.tenant.origin_url}")
+                return proxy_request(request, request.tenant.origin_url)
+            return self.get_response(request)
+        
         # Load active rules for the tenant
         tenant_rules = TenantFirewallConfig.objects.filter(
             tenant=request.tenant, is_enabled=True
