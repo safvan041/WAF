@@ -86,7 +86,7 @@ class WAFMiddleware(MiddlewareMixin):
                 return HttpResponseForbidden("<h1>403 Forbidden</h1><p>Access from your country is blocked.</p>")
 
         # Skip WAF rule checks for dashboard, admin, and authentication paths
-        excluded_paths = ('/admin/', '/static/', '/media/', '/dashboard/', '/tenant/', '/login', '/logout', '/register', '/health/')
+        excluded_paths = ('/admin/', '/static/', '/media/', '/dashboard/', '/tenant/', '/login/', '/logout/', '/register/', '/health/')
         if request.path.startswith(excluded_paths):
             if settings.DEBUG:
                 logger.debug(f"Skipping WAF checks for excluded path: {request.path}")
