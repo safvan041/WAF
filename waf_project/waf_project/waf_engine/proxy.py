@@ -187,6 +187,8 @@ def create_django_response(requests_response):
         'trailers',
         'transfer-encoding',
         'upgrade',
+        'content-encoding',
+        'content-length',
     }
     
     # Check if we should stream the response
