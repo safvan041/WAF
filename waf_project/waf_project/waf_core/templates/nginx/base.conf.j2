@@ -1,0 +1,52 @@
+upstream waf_app {
+    server web:8000;
+}
+
+# HTTP Server - Redirect to HTTPS
+server {
+    listen 80;
+    server_name demo.waf-app.site *.waf-app.site localhost 127.0.0.1;
+    
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# Base HTTPS Server for demo.waf-app.site
+server {
+    listen 443 ssl http2;
+    server_name demo.waf-app.site;
+
+    # Wildcard Certificate for *.waf-app.site
+    ssl_certificate /etc/letsencrypt/live/waf-app.site/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/waf-app.site/privkey.pem;
+    
+    # SSL configuration
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+
+    location /static/ {
+        alias /app/staticfiles/;
+    }
+
+    location /media/ {
+        alias /app/mediafiles/;
+    }
+
+    location / {
+        proxy_pass http://waf_app;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+{% for tenant in tenants %}
+{% include 'nginx/tenant_block.conf.j2' %}
+{% endfor %}

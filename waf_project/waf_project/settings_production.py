@@ -36,7 +36,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "waf_project.waf_core",
+    "waf_project.waf_core.apps.WafCoreConfig",
     "waf_project.waf_engine",
     "waf_project.waf_ml",
     "rest_framework",
@@ -248,6 +248,11 @@ LOGGING = {
             'level': os.environ.get('LOG_LEVEL', 'INFO'),
             'propagate': False,
         },
+        'waf_core': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
     },
 }
 
@@ -273,3 +278,12 @@ WAF_ML_MIN_SAMPLES_FOR_TRAINING = int(os.environ.get('WAF_ML_MIN_SAMPLES_FOR_TRA
 WAF_ML_FEATURE_EXTRACTION_ENABLED = os.environ.get('WAF_ML_FEATURE_EXTRACTION_ENABLED', 'True').lower() == 'true'
 WAF_ML_PATTERN_AGGREGATION_MINUTES = int(os.environ.get('WAF_ML_PATTERN_AGGREGATION_MINUTES', '60'))
 WAF_ML_ENABLE_FALLBACK_RULES = os.environ.get('WAF_ML_ENABLE_FALLBACK_RULES', 'False').lower() == 'true'
+
+
+# Nginx Configuration Automation
+NGINX_CONFIG_PATH = os.getenv('NGINX_CONFIG_PATH', '/etc/nginx/nginx.conf')
+NGINX_TEMPLATE_DIR = os.path.join(BASE_DIR, 'waf_project', 'waf_core', 'templates', 'nginx')
+NGINX_RELOAD_COMMAND = os.getenv('NGINX_RELOAD_COMMAND', 'docker exec nginx nginx -s reload')
+NGINX_TEST_COMMAND = os.getenv('NGINX_TEST_COMMAND', 'docker exec nginx nginx -t')
+NGINX_AUTO_RELOAD = os.getenv('NGINX_AUTO_RELOAD', 'True').lower() == 'true'
+
