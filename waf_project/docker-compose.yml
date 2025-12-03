@@ -50,6 +50,7 @@ services:
       # - .:/app  # Commented out to prevent overwriting container's /app directory
       - static_volume:/app/staticfiles
       - media_volume:/app/mediafiles
+      - nginx_config:/etc/nginx/conf.d # Shared volume for Nginx config generation
     expose:
       - "8000"
     environment:
@@ -66,6 +67,11 @@ services:
       - DJANGO_SUPERUSER_USERNAME=safvan
       - DJANGO_SUPERUSER_EMAIL=safvanbakkar041@gmail.com
       - DJANGO_SUPERUSER_PASSWORD=d9mrtuc9a1
+      # Nginx Automation Settings
+      - NGINX_CONFIG_PATH=/etc/nginx/conf.d/nginx.conf
+      - NGINX_RELOAD_COMMAND=docker exec waf_nginx nginx -s reload
+      - NGINX_TEST_COMMAND=docker exec waf_nginx nginx -t
+      - NGINX_AUTO_RELOAD=True
     depends_on:
       db:
         condition: service_healthy
@@ -95,11 +101,16 @@ services:
       - media_volume:/app/mediafiles
       - certbot-etc:/etc/letsencrypt
       - certbot-www:/var/www/certbot
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/nginx.conf:ro
+      - nginx_config:/etc/nginx/conf.d # Shared volume for dynamic config (writable)
 
     depends_on:
       web:
         condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "nginx", "-t" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - waf_network
     command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
@@ -121,6 +132,8 @@ volumes:
   media_volume:
   certbot-etc:
   certbot-www:
+  nginx_config:
+    # Shared volume for Nginx configuration
 
 
 networks:

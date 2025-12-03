@@ -32,6 +32,10 @@ python manage.py migrate --noinput
 echo "Collecting static files..."
 python manage.py collectstatic --noinput --clear
 
+# Generate initial Nginx configuration
+echo "Generating initial Nginx configuration..."
+python manage.py generate_nginx_config || echo "Warning: Failed to generate Nginx config (will retry on tenant changes)"
+
 # Create superuser if it doesn't exist (optional - for initial setup)
 if [ "$CREATE_SUPERUSER" = "true" ]; then
     echo "Creating superuser..."
