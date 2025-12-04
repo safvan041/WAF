@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "waf_project.waf_core.apps.WafCoreConfig",
     "waf_project.waf_engine",
     "waf_project.waf_ml",
+    "waf_project.waf_security",
     "rest_framework",
 ]
 
@@ -253,6 +254,11 @@ LOGGING = {
             'level': 'INFO',
             'propagate': False,
         },
+        'waf_security': {  # Advanced security features
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
     },
 }
 
@@ -287,3 +293,34 @@ NGINX_RELOAD_COMMAND = os.getenv('NGINX_RELOAD_COMMAND', 'docker exec nginx ngin
 NGINX_TEST_COMMAND = os.getenv('NGINX_TEST_COMMAND', 'docker exec nginx nginx -t')
 NGINX_AUTO_RELOAD = os.getenv('NGINX_AUTO_RELOAD', 'True').lower() == 'true'
 
+# Feature Flags - Enable/disable specific security features
+WAF_ENABLE_RATE_LIMITING = True  # Per-tenant rate limiting
+WAF_ENABLE_IP_REPUTATION = True  # IP reputation tracking and auto-blocking
+WAF_ENABLE_RULE_CACHING = True   # Cache WAF rules for performance
+WAF_ENABLE_GEOIP_CACHING = True  # Cache GeoIP lookups
+
+# IP Reputation Configuration
+WAF_IP_REPUTATION_BLOCK_THRESHOLD = 80  # Auto-block IPs with score >= this value (0-100)
+WAF_IP_REPUTATION_DECAY_RATE = 5  # Points to decay per interval
+WAF_IP_REPUTATION_DECAY_INTERVAL = 24  # Hours between decay applications
+
+# GeoIP Configuration
+WAF_GEOIP_CACHE_TTL = 3600  # Cache IP-to-country lookups for 1 hour (seconds)
+WAF_GEOIP_ALLOW_UNKNOWN = True  # Allow requests when country can't be determined
+
+# Cache Configuration
+# For production, configure Redis or Memcached for better performance
+# Development uses in-memory cache by default
+#
+# Example Redis configuration:
+# CACHES = {
+#     'default': {
+#         'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+#         'LOCATION': os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1'),
+#         'OPTIONS': {
+#             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+#         },
+#         'KEY_PREFIX': 'waf',
+#         'TIMEOUT': 300,  # 5 minutes default
+#     }
+# }
