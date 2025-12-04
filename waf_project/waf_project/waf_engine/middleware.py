@@ -23,6 +23,18 @@ from waf_project.waf_ml.models import MLModel, AnomalyScore
 
 logger = logging.getLogger('waf_engine')
 
+# Advanced security features (rate limiting, IP reputation, caching, optimized GeoIP)
+try:
+    from waf_project.waf_security.tenant_rate_limiter import TenantRateLimiter
+    from waf_project.waf_security.tenant_cache_manager import TenantCacheManager
+    from waf_project.waf_security.ip_reputation import IPReputationManager
+    from waf_project.waf_security.geoip_manager import GeoIPManager
+    from waf_project.waf_security.models import GeoBlockEvent
+    ADVANCED_SECURITY_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"Advanced security components not available: {e}")
+    ADVANCED_SECURITY_AVAILABLE = False
+
 class WAFMiddleware(MiddlewareMixin):
     async_mode = False
 
@@ -54,14 +66,23 @@ class WAFMiddleware(MiddlewareMixin):
         if settings.DEBUG:
             logger.debug(f"Processing WAF for tenant: {request.tenant.name}")
         
-        # Load tenant-specific WAF configuration and rules
-        try:
-            waf_config = WAFConfiguration.objects.get(tenant=request.tenant)
-            if settings.DEBUG:
-                logger.debug(f"Found WAF config, enabled: {waf_config.is_enabled}")
-        except WAFConfiguration.DoesNotExist:
+        # Load tenant-specific WAF configuration (use cache if available)
+        use_cache = ADVANCED_SECURITY_AVAILABLE and getattr(settings, 'WAF_ENABLE_RULE_CACHING', True)
+        
+        if use_cache:
+            waf_config = TenantCacheManager.get_waf_config(request.tenant)
+        else:
+            try:
+                waf_config = WAFConfiguration.objects.get(tenant=request.tenant)
+            except WAFConfiguration.DoesNotExist:
+                waf_config = None
+        
+        if not waf_config:
             logger.warning(f"WAF Skipped: No WAF configuration found for tenant {request.tenant.name}")
             return self.get_response(request)
+        
+        if settings.DEBUG:
+            logger.debug(f"Found WAF config, enabled: {waf_config.is_enabled}")
 
         if not waf_config.is_enabled:
             logger.warning(f"WAF Disabled: WAF is explicitly disabled for tenant {request.tenant.name}")
@@ -71,19 +92,86 @@ class WAFMiddleware(MiddlewareMixin):
         if settings.DEBUG:
             print(f"DEBUG: Client IP: {client_ip}")
         
+        # Check rate limits FIRST (before other security checks)
+        enable_rate_limiting = (
+            ADVANCED_SECURITY_AVAILABLE and 
+            waf_config.rate_limiting_enabled and
+            getattr(settings, 'WAF_ENABLE_RATE_LIMITING', True)
+        )
+        
+        if enable_rate_limiting:
+            is_allowed, limit_type, current_count, limit_value = TenantRateLimiter.check_rate_limit(
+                request.tenant, client_ip, request
+            )
+            if not is_allowed:
+                logger.warning(
+                    f"Rate limit exceeded for {client_ip} on tenant {request.tenant.name}: "
+                    f"{limit_type} {current_count}/{limit_value}"
+                )
+                # Record violation for IP reputation tracking
+                if getattr(settings, 'WAF_ENABLE_IP_REPUTATION', True):
+                    IPReputationManager.record_violation(
+                        request.tenant, client_ip, 'rate_limit'
+                    )
+                return HttpResponseForbidden(
+                    "<h1>429 Too Many Requests</h1>"
+                    f"<p>Rate limit exceeded. Limit type: {limit_type}</p>"
+                )
+        
+        # Check IP reputation for automatic blocking
+        enable_ip_reputation = (
+            ADVANCED_SECURITY_AVAILABLE and
+            getattr(settings, 'WAF_ENABLE_IP_REPUTATION', True)
+        )
+        
+        if enable_ip_reputation:
+            reputation_status = IPReputationManager.check_reputation(request.tenant, client_ip)
+            if reputation_status['is_blocked']:
+                logger.warning(
+                    f"IP {client_ip} blocked by reputation system for tenant {request.tenant.name}: "
+                    f"score={reputation_status['score']}"
+                )
+                self._log_event(
+                    request.tenant, None, 'ip_reputation_block', 'block', 'high', client_ip, request
+                )
+                return HttpResponseForbidden(
+                    "<h1>403 Forbidden</h1>"
+                    f"<p>Your IP has been blocked due to malicious behavior (reputation score: {reputation_status['score']}).</p>"
+                )
+        
         # Check IP against whitelists and blacklists
         if self._is_whitelisted(request.tenant, client_ip):
-            return self._forward_request(request, request.tenant.domain)
+            if request.tenant.origin_url:
+                from .proxy import proxy_request
+                return proxy_request(request, request.tenant.origin_url)
+            return self.get_response(request)
 
         if self._is_blacklisted(request.tenant, client_ip):
             self._log_event(request.tenant, None, 'ip_blacklist', 'block', 'critical', client_ip, request)
             return HttpResponseForbidden("<h1>403 Forbidden</h1><p>Your IP has been blacklisted.</p>")
 
+        # Geographic blocking with optimized GeoIP lookups
         if waf_config.geographic_blocking_enabled:
-            if self._is_geoblocked(request.tenant, client_ip):
-                rule = FirewallRule.objects.filter(rule_type='geo_blocking').first()
-                self._log_event(request.tenant, rule, 'geo_blocked', rule.action, rule.severity, client_ip, request)
-                return HttpResponseForbidden("<h1>403 Forbidden</h1><p>Access from your country is blocked.</p>")
+            use_optimized_geoip = (
+                ADVANCED_SECURITY_AVAILABLE and
+                getattr(settings, 'WAF_ENABLE_GEOIP_CACHING', True)
+            )
+            
+            if use_optimized_geoip:
+                is_blocked, country_code, country_name = self._check_geo_blocking_optimized(
+                    request.tenant, client_ip, request
+                )
+                if is_blocked:
+                    return HttpResponseForbidden(
+                        f"<h1>403 Forbidden</h1>"
+                        f"<p>Access from {country_name or 'your country'} is blocked.</p>"
+                    )
+            else:
+                # Standard geo-blocking method
+                if self._is_geoblocked(request.tenant, client_ip):
+                    rule = FirewallRule.objects.filter(rule_type='geo_blocking').first()
+                    self._log_event(request.tenant, rule, 'geo_blocked', 'block', 'high', client_ip, request)
+                    return HttpResponseForbidden("<h1>403 Forbidden</h1><p>Access from your country is blocked.</p>")
 
         # Skip WAF rule checks for dashboard, admin, and authentication paths
         excluded_paths = ('/admin/', '/static/', '/media/', '/dashboard/', '/tenant/', '/login/', '/logout/', '/register/', '/health/')
@@ -96,13 +184,17 @@ class WAFMiddleware(MiddlewareMixin):
                 return proxy_request(request, request.tenant.origin_url)
             return self.get_response(request)
         
-        # Load active rules for the tenant
-        tenant_rules = TenantFirewallConfig.objects.filter(
-            tenant=request.tenant, is_enabled=True
-        ).select_related('rule')
+        # Load active WAF rules (use cache if available)
+        if use_cache:
+            tenant_rules = TenantCacheManager.get_tenant_rules(request.tenant)
+        else:
+            tenant_rules = TenantFirewallConfig.objects.filter(
+                tenant=request.tenant, is_enabled=True
+            ).select_related('rule')
 
         if settings.DEBUG:
-            print(f"DEBUG: Found {tenant_rules.count()} active rules for tenant")
+            rule_count = len(tenant_rules) if use_cache else tenant_rules.count()
+            print(f"DEBUG: Found {rule_count} active rules for tenant")
 
         for config in tenant_rules:
             rule = config.rule
@@ -118,6 +210,15 @@ class WAFMiddleware(MiddlewareMixin):
             if self._match_pattern(request, rule):
                 logger.info(f"WAF Rule Matched: {rule.name} for tenant {request.tenant.name}")
                 self._log_event(request.tenant, rule, rule.rule_type, effective_action, 'medium', client_ip, request)
+                
+                # Record violation for IP reputation tracking
+                if enable_ip_reputation and effective_action == 'block':
+                    violation_type = rule.rule_type
+                    if violation_type in ['sql_injection', 'xss', 'bot_protection']:
+                        IPReputationManager.record_violation(
+                            request.tenant, client_ip, violation_type
+                        )
+                
                 if effective_action == 'block':
                     return HttpResponseForbidden("<h1>403 Forbidden</h1><p>Your request has been blocked by the WAF.</p>")
                 else:
@@ -324,6 +425,40 @@ class WAFMiddleware(MiddlewareMixin):
                 f"Unexpected error in GeoIP lookup for {ip_address}"
             )
             return None
+    
+    def _check_geo_blocking_optimized(self, tenant, ip_address, request):
+        """
+        Optimized geo-blocking using cached GeoIP lookups.
+        
+        Returns:
+            tuple: (is_blocked, country_code, country_name)
+        """
+        geoip_manager = GeoIPManager.get_instance()
+        is_blocked, country_code, country_name = geoip_manager.is_country_blocked(tenant, ip_address)
+        
+        if is_blocked:
+            # Log geo-block event for analytics
+            try:
+                GeoBlockEvent.objects.create(
+                    tenant=tenant,
+                    ip_address=ip_address,
+                    country_code=country_code or 'UNKNOWN',
+                    country_name=country_name or 'Unknown',
+                    request_path=request.path,
+                    request_method=request.method,
+                    user_agent=request.META.get('HTTP_USER_AGENT', ''),
+                    action='block',
+                )
+            except Exception as e:
+                logger.error(f"Failed to log geo-block event: {e}")
+            
+            # Log security event
+            self._log_event(
+                tenant, None, 'geo_blocked', 'block', 'medium', ip_address, request
+            )
+        
+        return is_blocked, country_code, country_name
+
 
     def _check_ml_anomaly(self, request, tenant, client_ip):
         """
