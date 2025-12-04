@@ -51,8 +51,8 @@ def proxy_request(request, origin_url):
             timeout=30  # 30 second timeout
         )
         
-        # Return the response (Location headers will be rewritten)
-        return create_django_response(response, request)
+        # Return the response (Location headers and HTML content will be rewritten)
+        return create_django_response(response, request, origin_url)
         
     except requests.exceptions.Timeout:
         logger.error(f"Timeout while proxying to {target_url}")
@@ -168,13 +168,14 @@ def get_client_ip(request):
     return ip
 
 
-def create_django_response(requests_response, request=None):
+def create_django_response(requests_response, request=None, origin_url=None):
     """
     Convert a requests.Response object to a Django HttpResponse.
     
     Args:
         requests_response: requests.Response object
         request: Django HttpRequest (optional, needed for Location rewriting)
+        origin_url: Origin URL (optional, needed for content rewriting)
     
     Returns:
         HttpResponse or StreamingHttpResponse
@@ -202,16 +203,35 @@ def create_django_response(requests_response, request=None):
         int(requests_response.headers.get('Content-Length', 0)) > 1024 * 1024  # > 1MB
     )
     
+    # Check if we should rewrite HTML content
+    should_rewrite_html = (
+        not should_stream and
+        request and
+        origin_url and
+        'text/html' in content_type
+    )
+    
     if should_stream:
-        # Create streaming response
+        # Create streaming response (no content rewriting for streams)
         response = StreamingHttpResponse(
             streaming_content=requests_response.iter_content(chunk_size=8192),
             status=requests_response.status_code
         )
     else:
+        # Get content
+        content = requests_response.content
+        
+        # Rewrite HTML content if needed
+        if should_rewrite_html:
+            try:
+                content = rewrite_html_content(content, origin_url, request)
+            except Exception as e:
+                logger.warning(f"Failed to rewrite HTML content: {e}")
+                # Continue with original content if rewriting fails
+        
         # Create regular response
         response = HttpResponse(
-            content=requests_response.content,
+            content=content,
             status=requests_response.status_code
         )
     
@@ -224,6 +244,70 @@ def create_django_response(requests_response, request=None):
             response[key] = value
     
     return response
+
+
+def rewrite_html_content(content, origin_url, request):
+    """
+    Rewrite HTML content to replace origin domain with tenant domain.
+    This prevents JavaScript redirects and meta refresh tags from changing the URL.
+    
+    Args:
+        content: HTML content bytes
+        origin_url: Origin URL (e.g., "http://www.tenupsoft.com")
+        request: Django HttpRequest
+    
+    Returns:
+        Rewritten content bytes
+    """
+    from urllib.parse import urlparse
+    
+    try:
+        # Decode content
+        html = content.decode('utf-8')
+        
+        # Get origin domain
+        origin_parsed = urlparse(origin_url)
+        origin_domain = origin_parsed.netloc
+        origin_scheme = origin_parsed.scheme
+        
+        # Get tenant domain
+        tenant_host = request.get_host()
+        tenant_scheme = 'https' if request.is_secure() else 'http'
+        
+        # Replace all occurrences of origin domain with tenant domain
+        # Handle both HTTP and HTTPS
+        replacements = [
+            (f'https://{origin_domain}', f'{tenant_scheme}://{tenant_host}'),
+            (f'http://{origin_domain}', f'{tenant_scheme}://{tenant_host}'),
+            (f'https://www.{origin_domain}', f'{tenant_scheme}://{tenant_host}'),
+            (f'http://www.{origin_domain}', f'{tenant_scheme}://{tenant_host}'),
+            (f'//{origin_domain}', f'//{tenant_host}'),  # Protocol-relative URLs
+        ]
+        
+        for old, new in replacements:
+            html = html.replace(old, new)
+        
+        # Also handle www prefix variations
+        if origin_domain.startswith('www.'):
+            base_domain = origin_domain[4:]
+            html = html.replace(f'https://{base_domain}', f'{tenant_scheme}://{tenant_host}')
+            html = html.replace(f'http://{base_domain}', f'{tenant_scheme}://{tenant_host}')
+            html = html.replace(f'//{base_domain}', f'//{tenant_host}')
+        else:
+            www_domain = f'www.{origin_domain}'
+            html = html.replace(f'https://{www_domain}', f'{tenant_scheme}://{tenant_host}')
+            html = html.replace(f'http://{www_domain}', f'{tenant_scheme}://{tenant_host}')
+            html = html.replace(f'//{www_domain}', f'//{tenant_host}')
+        
+        logger.info(f"Rewrote HTML content: replaced {origin_domain} with {tenant_host}")
+        
+        # Encode back to bytes
+        return html.encode('utf-8')
+        
+    except UnicodeDecodeError:
+        # If we can't decode as UTF-8, return original content
+        logger.warning("Failed to decode HTML content as UTF-8")
+        return content
 
 
 def rewrite_location_header(location, request):
