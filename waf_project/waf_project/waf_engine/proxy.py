@@ -38,20 +38,21 @@ def proxy_request(request, origin_url):
     
     try:
         # Make the request to origin server
-        # stream=True allows us to handle large responses efficiently
+        # allow_redirects=True: Follow redirects from origin (e.g., HTTP->HTTPS)
+        # stream=True: Handle large responses efficiently
         response = requests.request(
             method=method,
             url=target_url,
             headers=headers,
             data=body,
             params=request.GET.dict(),
-            allow_redirects=False,  # Let the client handle redirects
+            allow_redirects=True,  # Follow redirects from origin
             stream=True,
             timeout=30  # 30 second timeout
         )
         
-        # Return the response
-        return create_django_response(response)
+        # Return the response (Location headers will be rewritten)
+        return create_django_response(response, request)
         
     except requests.exceptions.Timeout:
         logger.error(f"Timeout while proxying to {target_url}")
@@ -167,12 +168,13 @@ def get_client_ip(request):
     return ip
 
 
-def create_django_response(requests_response):
+def create_django_response(requests_response, request=None):
     """
     Convert a requests.Response object to a Django HttpResponse.
     
     Args:
         requests_response: requests.Response object
+        request: Django HttpRequest (optional, needed for Location rewriting)
     
     Returns:
         HttpResponse or StreamingHttpResponse
@@ -216,6 +218,47 @@ def create_django_response(requests_response):
     # Copy headers from origin response
     for key, value in requests_response.headers.items():
         if key.lower() not in excluded_response_headers:
+            # Rewrite Location header to preserve tenant URL
+            if key.lower() == 'location' and request:
+                value = rewrite_location_header(value, request)
             response[key] = value
     
     return response
+
+
+def rewrite_location_header(location, request):
+    """
+    Rewrite Location header to use the tenant's domain instead of origin domain.
+    
+    Args:
+        location: Original Location header value
+        request: Django HttpRequest
+    
+    Returns:
+        Rewritten Location header
+    """
+    from urllib.parse import urlparse, urlunparse
+    
+    # If it's a relative URL, keep it as is
+    if not location.startswith(('http://', 'https://')):
+        return location
+    
+    # Parse the location URL
+    parsed = urlparse(location)
+    
+    # Get the tenant's host
+    tenant_host = request.get_host()
+    tenant_scheme = 'https' if request.is_secure() else 'http'
+    
+    # Rewrite to use tenant's domain
+    rewritten = urlunparse((
+        tenant_scheme,  # Use tenant's scheme
+        tenant_host,    # Use tenant's host
+        parsed.path,    # Keep original path
+        parsed.params,  # Keep params
+        parsed.query,   # Keep query
+        parsed.fragment # Keep fragment
+    ))
+    
+    logger.info(f"Rewrote Location header: {location} -> {rewritten}")
+    return rewritten
