@@ -211,6 +211,14 @@ def create_django_response(requests_response, request=None, origin_url=None):
         'text/html' in content_type
     )
     
+    # Check if we should rewrite CSS/JS content
+    should_rewrite_css_js = (
+        not should_stream and
+        request and
+        origin_url and
+        ('text/css' in content_type or 'javascript' in content_type)
+    )
+    
     if should_stream:
         # Create streaming response (no content rewriting for streams)
         response = StreamingHttpResponse(
@@ -229,6 +237,14 @@ def create_django_response(requests_response, request=None, origin_url=None):
                 logger.warning(f"Failed to rewrite HTML content: {e}")
                 # Continue with original content if rewriting fails
         
+        # Rewrite CSS/JS content if needed
+        elif should_rewrite_css_js:
+            try:
+                content = rewrite_css_js_content(content, origin_url, request)
+            except Exception as e:
+                logger.warning(f"Failed to rewrite CSS/JS content: {e}")
+                # Continue with original content if rewriting fails
+        
         # Create regular response
         response = HttpResponse(
             content=content,
@@ -241,9 +257,125 @@ def create_django_response(requests_response, request=None, origin_url=None):
             # Rewrite Location header to preserve tenant URL
             if key.lower() == 'location' and request:
                 value = rewrite_location_header(value, request)
+            # Rewrite CSP header to allow resources from tenant domain
+            elif key.lower() == 'content-security-policy' and request and origin_url:
+                value = rewrite_csp_header(value, origin_url, request)
             response[key] = value
     
     return response
+
+
+def rewrite_css_js_content(content, origin_url, request):
+    """
+    Rewrite CSS/JS content to replace origin domain with tenant domain.
+    
+    Args:
+        content: CSS/JS content bytes
+        origin_url: Origin URL (e.g., "http://www.tenupsoft.com")
+        request: Django HttpRequest
+    
+    Returns:
+        Rewritten content bytes
+    """
+    from urllib.parse import urlparse
+    
+    try:
+        # Decode content
+        text = content.decode('utf-8')
+        
+        # Get origin domain
+        origin_parsed = urlparse(origin_url)
+        origin_domain = origin_parsed.netloc
+        
+        # Get tenant domain
+        tenant_host = request.get_host()
+        tenant_scheme = 'https' if request.is_secure() else 'http'
+        
+        # Replace all occurrences of origin domain with tenant domain
+        replacements = [
+            (f'https://{origin_domain}', f'{tenant_scheme}://{tenant_host}'),
+            (f'http://{origin_domain}', f'{tenant_scheme}://{tenant_host}'),
+            (f'//{origin_domain}', f'//{tenant_host}'),
+        ]
+        
+        # Handle www variations
+        if origin_domain.startswith('www.'):
+            base_domain = origin_domain[4:]
+            replacements.extend([
+                (f'https://{base_domain}', f'{tenant_scheme}://{tenant_host}'),
+                (f'http://{base_domain}', f'{tenant_scheme}://{tenant_host}'),
+                (f'//{base_domain}', f'//{tenant_host}'),
+            ])
+        else:
+            www_domain = f'www.{origin_domain}'
+            replacements.extend([
+                (f'https://{www_domain}', f'{tenant_scheme}://{tenant_host}'),
+                (f'http://{www_domain}', f'{tenant_scheme}://{tenant_host}'),
+                (f'//{www_domain}', f'//{tenant_host}'),
+            ])
+        
+        for old, new in replacements:
+            text = text.replace(old, new)
+        
+        logger.info(f"Rewrote CSS/JS content: replaced {origin_domain} with {tenant_host}")
+        
+        return text.encode('utf-8')
+        
+    except UnicodeDecodeError:
+        logger.warning("Failed to decode CSS/JS content as UTF-8")
+        return content
+
+
+def rewrite_csp_header(csp_value, origin_url, request):
+    """
+    Rewrite Content-Security-Policy header to allow resources from tenant domain.
+    
+    Args:
+        csp_value: Original CSP header value
+        origin_url: Origin URL
+        request: Django HttpRequest
+    
+    Returns:
+        Rewritten CSP header value
+    """
+    from urllib.parse import urlparse
+    
+    # Get origin domain
+    origin_parsed = urlparse(origin_url)
+    origin_domain = origin_parsed.netloc
+    
+    # Get tenant domain
+    tenant_host = request.get_host()
+    tenant_scheme = 'https' if request.is_secure() else 'http'
+    
+    # Replace origin domain with tenant domain in CSP
+    csp_rewritten = csp_value
+    
+    replacements = [
+        (f'https://{origin_domain}', f'{tenant_scheme}://{tenant_host}'),
+        (f'http://{origin_domain}', f'{tenant_scheme}://{tenant_host}'),
+    ]
+    
+    # Handle www variations
+    if origin_domain.startswith('www.'):
+        base_domain = origin_domain[4:]
+        replacements.extend([
+            (f'https://{base_domain}', f'{tenant_scheme}://{tenant_host}'),
+            (f'http://{base_domain}', f'{tenant_scheme}://{tenant_host}'),
+        ])
+    else:
+        www_domain = f'www.{origin_domain}'
+        replacements.extend([
+            (f'https://{www_domain}', f'{tenant_scheme}://{tenant_host}'),
+            (f'http://{www_domain}', f'{tenant_scheme}://{tenant_host}'),
+        ])
+    
+    for old, new in replacements:
+        csp_rewritten = csp_rewritten.replace(old, new)
+    
+    logger.info(f"Rewrote CSP header")
+    
+    return csp_rewritten
 
 
 def rewrite_html_content(content, origin_url, request):
