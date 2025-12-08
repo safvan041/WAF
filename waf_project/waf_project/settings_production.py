@@ -25,7 +25,8 @@ if raw_hosts:
     ALLOWED_HOSTS = [h.strip() for h in raw_hosts.split(",") if h.strip()]
 else:
     # dev-safe default
-    ALLOWED_HOSTS = ["*"] if DEBUG else ["waf-app.site", ".waf-app.site"]
+    # Include server IP for domain verification and health checks
+    ALLOWED_HOSTS = ["*"] if DEBUG else ["waf-app.site", ".waf-app.site", "13.202.53.83", "*"]
 
 
 # Application definition

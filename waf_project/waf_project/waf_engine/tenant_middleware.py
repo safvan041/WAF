@@ -24,7 +24,13 @@ class TenantMiddleware:
 
     def __call__(self, request):
         # Prefer X-Forwarded-Host if you are behind a reverse proxy (Nginx)
-        host_header = request.META.get('HTTP_X_FORWARDED_HOST') or request.get_host()
+        # Use request.META directly to avoid ALLOWED_HOSTS validation
+        # This allows us to handle requests with IP addresses not in ALLOWED_HOSTS
+        host_header = (
+            request.META.get('HTTP_X_FORWARDED_HOST') or 
+            request.META.get('HTTP_HOST') or
+            f"{request.META.get('SERVER_NAME', 'localhost')}:{request.META.get('SERVER_PORT', '80')}"
+        )
 
         # X-Forwarded-Host can contain multiple values -> take the first
         if ',' in host_header:
