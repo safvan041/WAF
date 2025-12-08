@@ -41,11 +41,19 @@
                     </li>
 
                     <!-- ✅ Tenant Config Button -->
+                    {% if user.is_superuser %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'tenant_list_admin' %}">
+                            All Tenants
+                        </a>
+                    </li>
+                    {% else %}
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'tenant_detail' %}">
                             Tenant
                         </a>
                     </li>
+                    {% endif %}
                     {% endif %}
                 </ul>
 

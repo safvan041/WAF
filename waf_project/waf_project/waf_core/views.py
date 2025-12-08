@@ -136,22 +136,44 @@ def rules_list(request):
 
 
 @login_required
-def tenant_detail_view(request, tenant_id=None):
+def tenant_list_admin(request):
     """
-    Tenant detail page:
-    - Superuser can view any tenant by ID.
-    - Normal user only sees their own tenant.
-    Shows origin_url and waf_host so you can verify routing.
+    Admin view to list all tenants with their verification status.
+    Only accessible by superusers.
     """
-    user = request.user
+    if not request.user.is_superuser:
+        return HttpResponse("Unauthorized. Only superusers can view all tenants.", status=403)
+    
+    # Get all tenants ordered by creation date
+    tenants = Tenant.objects.all().order_by('-created_at')
+    
+    # Calculate statistics
+    total_tenants = tenants.count()
+    verified_count = tenants.filter(domain_verified=True).count()
+    unverified_count = tenants.filter(domain_verified=False).count()
+    active_count = tenants.filter(is_active=True).count()
+    
+    context = {
+        'tenants': tenants,
+        'total_tenants': total_tenants,
+        'verified_count': verified_count,
+        'unverified_count': unverified_count,
+        'active_count': active_count,
+    }
+    return render(request, 'waf_core/tenant_list_admin.html', context)
 
-    if user.is_superuser and tenant_id is not None:
-        tenant = get_object_or_404(Tenant, id=tenant_id)
-    else:
-        if not getattr(user, "tenant", None):
-            return HttpResponse("No tenant associated with this user.", status=400)
-        tenant = user.tenant
 
+@login_required
+def tenant_detail_admin(request, tenant_id):
+    """
+    Admin view to show detailed information about a specific tenant.
+    Only accessible by superusers.
+    """
+    if not request.user.is_superuser:
+        return HttpResponse("Unauthorized. Only superusers can view tenant details.", status=403)
+    
+    tenant = get_object_or_404(Tenant, id=tenant_id)
+    
     context = {
         "tenant": tenant,
         "origin_url": tenant.origin_url,
