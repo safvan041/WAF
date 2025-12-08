@@ -145,60 +145,56 @@
                         </div>
                         
                         <!-- Domain -->
-                        <p class="small mb-3">
-                            <span class="text-muted d-block mb-1">Domain</span>
-                            <span style="color: #60a5fa; word-break: break-all;">{{ tenant.domain }}</span>
-                        </p>
-                        
-                        <!-- Status & Plan -->
                         <div class="mb-3">
-                            <div class="row g-2">
-                                <div class="col-6">
-                                    <small class="text-muted d-block mb-1">Status</small>
-                                    <span class="badge 
-                                        {% if tenant.status == 'active' %}bg-success
-                                        {% elif tenant.status == 'trial' %}bg-info
-                                        {% elif tenant.status == 'suspended' %}bg-danger
-                                        {% else %}bg-warning
-                                        {% endif %}" style="display: inline-block;">
-                                        {{ tenant.get_status_display }}
-                                    </span>
-                                </div>
-                                <div class="col-6">
-                                    <small class="text-muted d-block mb-1">Plan</small>
-                                    <span class="badge bg-secondary" style="display: inline-block;">{{ tenant.get_plan_display }}</span>
-                                </div>
-                            </div>
+                            <small class="text-muted d-block mb-1" style="font-size: 0.75rem;">Domain</small>
+                            <p class="text-white mb-0" style="word-break: break-all; color: #60a5fa; font-size: 0.9rem;">{{ tenant.domain }}</p>
                         </div>
                         
-                        <!-- Verification & Active -->
+                        <!-- Status -->
+                        <div class="mb-2">
+                            <small class="text-muted d-block mb-1" style="font-size: 0.75rem;">Status</small>
+                            <span class="badge 
+                                {% if tenant.status == 'active' %}bg-success
+                                {% elif tenant.status == 'trial' %}bg-info
+                                {% elif tenant.status == 'suspended' %}bg-danger
+                                {% else %}bg-warning
+                                {% endif %}" style="display: inline-block; font-size: 0.8rem;">
+                                {{ tenant.get_status_display }}
+                            </span>
+                        </div>
+                        
+                        <!-- Plan -->
+                        <div class="mb-2">
+                            <small class="text-muted d-block mb-1" style="font-size: 0.75rem;">Plan</small>
+                            <span class="badge bg-secondary" style="display: inline-block; font-size: 0.8rem;">{{ tenant.get_plan_display }}</span>
+                        </div>
+                        
+                        <!-- Verification -->
+                        <div class="mb-2">
+                            <small class="text-muted d-block mb-1" style="font-size: 0.75rem;">Verification</small>
+                            {% if tenant.domain_verified %}
+                            <span class="badge bg-success" style="display: inline-block; font-size: 0.8rem;">
+                                <i class="fas fa-check-circle"></i> Verified
+                            </span>
+                            {% else %}
+                            <span class="badge bg-warning" style="display: inline-block; font-size: 0.8rem;">
+                                <i class="fas fa-exclamation-triangle"></i> Not Verified
+                            </span>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Active -->
                         <div class="mb-3">
-                            <div class="row g-2">
-                                <div class="col-6">
-                                    <small class="text-muted d-block mb-1">Verification</small>
-                                    {% if tenant.domain_verified %}
-                                    <span class="badge bg-success" style="display: inline-block;">
-                                        <i class="fas fa-check-circle"></i> Verified
-                                    </span>
-                                    {% else %}
-                                    <span class="badge bg-warning" style="display: inline-block;">
-                                        <i class="fas fa-exclamation-triangle"></i> Not Verified
-                                    </span>
-                                    {% endif %}
-                                </div>
-                                <div class="col-6">
-                                    <small class="text-muted d-block mb-1">Active</small>
-                                    {% if tenant.is_active %}
-                                    <span class="badge bg-success" style="display: inline-block;">Yes</span>
-                                    {% else %}
-                                    <span class="badge bg-danger" style="display: inline-block;">No</span>
-                                    {% endif %}
-                                </div>
-                            </div>
+                            <small class="text-muted d-block mb-1" style="font-size: 0.75rem;">Active</small>
+                            {% if tenant.is_active %}
+                            <span class="badge bg-success" style="display: inline-block; font-size: 0.8rem;">Yes</span>
+                            {% else %}
+                            <span class="badge bg-danger" style="display: inline-block; font-size: 0.8rem;">No</span>
+                            {% endif %}
                         </div>
                         
                         <!-- Created Date -->
-                        <small class="text-muted">Created: {{ tenant.created_at|date:"M d, Y" }}</small>
+                        <small class="text-muted" style="font-size: 0.75rem;">Created: {{ tenant.created_at|date:"M d, Y" }}</small>
                     </div>
                 </div>
                 {% empty %}
@@ -279,12 +275,19 @@
         }
         
         small {
-            font-size: 0.8rem !important;
+            font-size: 0.75rem !important;
+            color: #94a3b8 !important;
         }
         
         .badge {
             font-size: 0.75rem;
             padding: 0.35em 0.6em;
+        }
+        
+        .text-muted {
+            color: #94a3b8 !important;
+            opacity: 1 !important;
+            visibility: visible !important;
         }
     }
 </style>
