@@ -17,28 +17,28 @@
             <h5 class="mb-3" style="color: #60a5fa;">
                 <i class="fas fa-chart-bar me-2"></i>Summary
             </h5>
-            <div class="row text-center">
-                <div class="col-md-3 mb-3 mb-md-0">
+            <div class="row text-center g-2">
+                <div class="col-6 col-md-3">
                     <div class="p-3 rounded" style="background: rgba(59, 130, 246, 0.1);">
-                        <h3 class="mb-1 text-primary">{{ total_tenants }}</h3>
+                        <h3 class="mb-1 text-primary" style="font-size: 1.5rem;">{{ total_tenants }}</h3>
                         <p class="mb-0 small text-white">Total Tenants</p>
                     </div>
                 </div>
-                <div class="col-md-3 mb-3 mb-md-0">
+                <div class="col-6 col-md-3">
                     <div class="p-3 rounded" style="background: rgba(16, 185, 129, 0.1);">
-                        <h3 class="mb-1 text-success">{{ verified_count }}</h3>
+                        <h3 class="mb-1 text-success" style="font-size: 1.5rem;">{{ verified_count }}</h3>
                         <p class="mb-0 small text-white">Verified</p>
                     </div>
                 </div>
-                <div class="col-md-3 mb-3 mb-md-0">
+                <div class="col-6 col-md-3">
                     <div class="p-3 rounded" style="background: rgba(245, 158, 11, 0.1);">
-                        <h3 class="mb-1 text-warning">{{ unverified_count }}</h3>
+                        <h3 class="mb-1 text-warning" style="font-size: 1.5rem;">{{ unverified_count }}</h3>
                         <p class="mb-0 small text-white">Unverified</p>
                     </div>
                 </div>
-                <div class="col-md-3 mb-3 mb-md-0">
+                <div class="col-6 col-md-3">
                     <div class="p-3 rounded" style="background: rgba(16, 185, 129, 0.1);">
-                        <h3 class="mb-1 text-success">{{ active_count }}</h3>
+                        <h3 class="mb-1 text-success" style="font-size: 1.5rem;">{{ active_count }}</h3>
                         <p class="mb-0 small text-white">Active</p>
                     </div>
                 </div>
@@ -53,28 +53,101 @@
             <h5 class="mb-4" style="color: #60a5fa;">
                 <i class="fas fa-list me-2"></i>Tenant List
             </h5>
-            <div class="table-responsive" style="overflow-x: auto;">
-                <table class="table table-dark table-hover table-borderless mb-0" style="min-width: 100%; table-layout: auto;">
-                    <thead class="text-muted text-uppercase small">
-                        <tr>
-                            <th style="white-space: nowrap;">Organization</th>
-                            <th style="white-space: nowrap;">Domain</th>
-                            <th style="white-space: nowrap;">Status</th>
-                            <th style="white-space: nowrap;">Plan</th>
-                            <th style="white-space: nowrap;">Verification</th>
-                            <th style="white-space: nowrap;">Active</th>
-                            <th style="white-space: nowrap;">Created</th>
-                            <th style="white-space: nowrap;">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for tenant in tenants %}
-                        <tr>
-                            <td class="fw-bold text-white" style="white-space: nowrap;">{{ tenant.name }}</td>
-                            <td style="white-space: nowrap;">
-                                <span class="font-monospace" style="color: #60a5fa;">{{ tenant.domain }}</span>
-                            </td>
-                            <td>
+            
+            <!-- Desktop View - Table -->
+            <div class="d-none d-md-block">
+                <div style="overflow-x: auto;">
+                    <table class="table table-dark table-hover table-borderless mb-0">
+                        <thead class="text-muted text-uppercase small">
+                            <tr>
+                                <th>Organization</th>
+                                <th>Domain</th>
+                                <th>Status</th>
+                                <th>Plan</th>
+                                <th>Verification</th>
+                                <th>Active</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tenant in tenants %}
+                            <tr>
+                                <td class="fw-bold text-white">{{ tenant.name }}</td>
+                                <td>
+                                    <span class="font-monospace" style="color: #60a5fa; font-size: 0.85rem;">{{ tenant.domain }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge 
+                                        {% if tenant.status == 'active' %}bg-success
+                                        {% elif tenant.status == 'trial' %}bg-info
+                                        {% elif tenant.status == 'suspended' %}bg-danger
+                                        {% else %}bg-warning
+                                        {% endif %}">
+                                        {{ tenant.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ tenant.get_plan_display }}</span>
+                                </td>
+                                <td>
+                                    {% if tenant.domain_verified %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check-circle me-1"></i>Verified
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-warning">
+                                        <i class="fas fa-exclamation-triangle me-1"></i>Not Verified
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if tenant.is_active %}
+                                    <span class="badge bg-success">Yes</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">No</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-muted small">{{ tenant.created_at|date:"M d, Y" }}</td>
+                                <td>
+                                    <a href="{% url 'tenant_detail_admin' tenant.id %}" 
+                                       class="btn btn-sm btn-primary">
+                                        <i class="fas fa-eye me-1"></i>Details
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center py-4 text-muted">
+                                    No tenants found.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Mobile View - Cards -->
+            <div class="d-md-none">
+                {% for tenant in tenants %}
+                <div class="card bg-dark border-secondary mb-3">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="card-title text-white fw-bold mb-0">{{ tenant.name }}</h6>
+                            <a href="{% url 'tenant_detail_admin' tenant.id %}" 
+                               class="btn btn-sm btn-primary">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </div>
+                        
+                        <p class="small text-muted mb-2">
+                            <span style="color: #60a5fa;">{{ tenant.domain }}</span>
+                        </p>
+                        
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <small class="text-muted d-block">Status</small>
                                 <span class="badge 
                                     {% if tenant.status == 'active' %}bg-success
                                     {% elif tenant.status == 'trial' %}bg-info
@@ -83,45 +156,44 @@
                                     {% endif %}">
                                     {{ tenant.get_status_display }}
                                 </span>
-                            </td>
-                            <td>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted d-block">Plan</small>
                                 <span class="badge bg-secondary">{{ tenant.get_plan_display }}</span>
-                            </td>
-                            <td>
+                            </div>
+                        </div>
+                        
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <small class="text-muted d-block">Verification</small>
                                 {% if tenant.domain_verified %}
                                 <span class="badge bg-success">
-                                    <i class="fas fa-check-circle me-1"></i>Verified
+                                    <i class="fas fa-check-circle"></i> Verified
                                 </span>
                                 {% else %}
                                 <span class="badge bg-warning">
-                                    <i class="fas fa-exclamation-triangle me-1"></i>Not Verified
+                                    <i class="fas fa-exclamation-triangle"></i> Not Verified
                                 </span>
                                 {% endif %}
-                            </td>
-                            <td>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted d-block">Active</small>
                                 {% if tenant.is_active %}
                                 <span class="badge bg-success">Yes</span>
                                 {% else %}
                                 <span class="badge bg-danger">No</span>
                                 {% endif %}
-                            </td>
-                            <td class="text-muted small" style="white-space: nowrap;">{{ tenant.created_at|date:"M d, Y" }}</td>
-                            <td style="white-space: nowrap;">
-                                <a href="{% url 'tenant_detail_admin' tenant.id %}" 
-                                   class="btn btn-sm btn-primary" style="white-space: nowrap;">
-                                    <i class="fas fa-eye me-1"></i>View Details
-                                </a>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="8" class="text-center py-4 text-muted">
-                                No tenants found.
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                            </div>
+                        </div>
+                        
+                        <small class="text-muted">Created: {{ tenant.created_at|date:"M d, Y" }}</small>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-4 text-muted">
+                    No tenants found.
+                </div>
+                {% endfor %}
             </div>
         </div>
     </div>
@@ -138,28 +210,37 @@
     
     .table-dark tbody tr:hover {
         background: rgba(59, 130, 246, 0.1);
-        transform: translateX(4px);
     }
     
     .badge {
         padding: 0.4em 0.8em;
         font-weight: 500;
-        white-space: nowrap;
+        display: inline-block;
     }
     
-    /* Remove horizontal scrollbar */
-    .table-responsive {
-        overflow-x: visible !important;
+    .card {
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        border-radius: 12px;
+        transition: all 0.3s ease;
     }
     
-    /* Make table fit content */
-    .table {
-        width: 100% !important;
+    .card:hover {
+        background: rgba(59, 130, 246, 0.1) !important;
+        transform: translateY(-2px);
     }
     
-    /* Ensure glass-card doesn't cause overflow */
-    .glass-card {
-        overflow: visible;
+    /* Mobile optimizations */
+    @media (max-width: 768px) {
+        .container {
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+        
+        .glass-card {
+            margin-left: -10px;
+            margin-right: -10px;
+            border-radius: 0;
+        }
     }
 </style>
 {% endblock %}
