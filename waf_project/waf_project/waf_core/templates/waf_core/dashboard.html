@@ -56,7 +56,11 @@
                             <th>Timestamp</th>
                             <th>IP Address</th>
                             <th>Event Type</th>
+                            {% if user.is_superuser %}
+                            <th>Tenant Name</th>
+                            {% else %}
                             <th>Rule Name</th>
+                            {% endif %}
                             <th>Action Taken</th>
                             <th>Severity</th>
                         </tr>
@@ -67,7 +71,11 @@
                             <td>{{ event.timestamp|date:"Y-m-d H:i:s" }}</td>
                             <td><span class="badge bg-secondary font-monospace">{{ event.source_ip }}</span></td>
                             <td>{{ event.event_type }}</td>
+                            {% if user.is_superuser %}
+                            <td><span class="fw-bold text-primary">{{ event.tenant.name }}</span></td>
+                            {% else %}
                             <td>{{ event.rule_name }}</td>
+                            {% endif %}
                             <td>
                                 {% if event.action_taken == 'BLOCK' %}
                                 <span class="badge bg-danger">BLOCK</span>
